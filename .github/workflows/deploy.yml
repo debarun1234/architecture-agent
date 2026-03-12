@@ -7,6 +7,7 @@ on:
 
 env:
   PROJECT_ID: project-ef11010f-3538-4e0c-8f1
+  PROJECT_NUMBER: "762237553972"
   REGION: us-central1
   SERVICE_NAME: architecture-review-agent
 
@@ -22,7 +23,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
