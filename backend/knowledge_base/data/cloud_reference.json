@@ -1,0 +1,98 @@
+[
+  {
+    "id": "CRA-001",
+    "source_id": "CRA-001",
+    "section_reference": "AWS Reference Architecture §1.1",
+    "guideline_summary": "AWS 3-Tier Web Architecture: ALB → ECS/EKS → RDS Multi-AZ with ElastiCache, S3 for static assets, CloudFront CDN for global distribution.",
+    "text": "AWS 3-Tier Web Application reference architecture: Route53 → CloudFront (CDN) → Application Load Balancer → ECS or EKS (app tier, multi-AZ) → RDS PostgreSQL Multi-AZ (data tier) + ElastiCache Redis. Use S3 for static assets and user uploads. Use IAM roles for service authentication. Enable VPC Flow Logs, CloudTrail, and GuardDuty.",
+    "tags": ["AWS", "3-tier", "ECS", "EKS", "RDS", "CloudFront"]
+  },
+  {
+    "id": "CRA-002",
+    "source_id": "CRA-002",
+    "section_reference": "AWS Reference Architecture §1.2",
+    "guideline_summary": "AWS Serverless Architecture: API Gateway → Lambda → DynamoDB. Use SQS for async jobs, SNS for fan-out, Step Functions for workflows.",
+    "text": "AWS Serverless reference architecture: API Gateway → Lambda (with Provisioned Concurrency for latency-sensitive paths) → DynamoDB (on-demand or provisioned capacity). Use SQS for async job queuing, SNS for event fan-out, Step Functions for long-running workflows. Store large objects in S3. Use Cognito for authentication.",
+    "tags": ["AWS", "serverless", "Lambda", "DynamoDB", "API-Gateway"]
+  },
+  {
+    "id": "CRA-003",
+    "source_id": "CRA-003",
+    "section_reference": "GCP Reference Architecture §2.1",
+    "guideline_summary": "GCP Microservices on GKE: Cloud Load Balancing → GKE Autopilot → Cloud SQL (PostgreSQL) with Memorystore Redis, Pub/Sub for messaging.",
+    "text": "GCP Microservices reference architecture: Cloud Armor WAF → Global HTTP Load Balancer → GKE Autopilot (Kubernetes) → Cloud SQL PostgreSQL (with read replicas) + Memorystore Redis. Use Cloud Pub/Sub for async messaging, Cloud Storage for objects, Secret Manager for secrets. Enable VPC Service Controls and Cloud Audit Logs.",
+    "tags": ["GCP", "GKE", "Cloud-SQL", "Pub/Sub", "Kubernetes"]
+  },
+  {
+    "id": "CRA-004",
+    "source_id": "CRA-004",
+    "section_reference": "GCP Reference Architecture §2.2",
+    "guideline_summary": "GCP Data Analytics Pipeline: Pub/Sub → Dataflow (streaming ETL) → BigQuery with Looker Studio for visualization.",
+    "text": "GCP Data Analytics reference architecture: Event producers → Cloud Pub/Sub → Dataflow (streaming Apache Beam ETL) → BigQuery (analytical data warehouse) + Cloud Storage (data lake). Use Looker or Looker Studio for visualization. Use BigQuery ML for in-database machine learning. Implement column-level security for PII data.",
+    "tags": ["GCP", "BigQuery", "Dataflow", "analytics", "streaming"]
+  },
+  {
+    "id": "CRA-005",
+    "source_id": "CRA-005",
+    "section_reference": "Azure Reference Architecture §3.1",
+    "guideline_summary": "Azure Microservices: Application Gateway → AKS → Azure SQL / Cosmos DB with Azure Service Bus for messaging and Azure Key Vault for secrets.",
+    "text": "Azure Microservices reference architecture: Azure Front Door (WAF + CDN) → Application Gateway → AKS (Azure Kubernetes Service) → Azure SQL Managed Instance or Cosmos DB. Use Azure Service Bus for messaging, Azure Cache for Redis for caching, Azure Key Vault for secrets, Azure Monitor + Application Insights for observability.",
+    "tags": ["Azure", "AKS", "Cosmos-DB", "Service-Bus", "Kubernetes"]
+  },
+  {
+    "id": "CRA-006",
+    "source_id": "CRA-006",
+    "section_reference": "Multi-Cloud Reference §4.1",
+    "guideline_summary": "Multi-Cloud Strategy: use Kubernetes for portability, avoid cloud-specific PaaS lock-in for core workloads. Use Terraform for infrastructure-as-code across providers.",
+    "text": "Multi-Cloud reference architecture: use Kubernetes (EKS/GKE/AKS) for workload portability. Use cloud-agnostic data layers (CockroachDB, Cassandra, Kafka). Use Terraform for consistent infrastructure-as-code across providers. Implement a service mesh (Istio/Cilium) for cross-cloud service-to-service communication. Accept managed PaaS for non-portable workloads (CDN, DNS).",
+    "tags": ["multi-cloud", "Kubernetes", "Terraform", "portability"]
+  },
+  {
+    "id": "CRA-007",
+    "source_id": "CRA-007",
+    "section_reference": "Edge Computing Reference §5.1",
+    "guideline_summary": "CDN with edge caching reduces latency for global users. Cache static assets, API responses, and pre-rendered HTML at edge nodes.",
+    "text": "CDN and Edge Computing reference: use CloudFront, Fastly, or Cloudflare to serve static assets and cache API responses at edge nodes globally. Cache pre-rendered HTML for public pages. Use edge functions (Lambda@Edge, Cloudflare Workers) for authentication, A/B testing, and request routing at the edge. Target <50ms latency for cached responses.",
+    "tags": ["CDN", "edge", "caching", "global-distribution", "performance"]
+  },
+  {
+    "id": "CRA-008",
+    "source_id": "CRA-008",
+    "section_reference": "Data Pipeline Reference §6.1",
+    "guideline_summary": "Lambda Architecture: combine batch processing (Spark) with stream processing (Kafka Streams/Flink) for low-latency analytics on large datasets.",
+    "text": "Lambda Architecture for real-time analytics: batch layer (Spark on HDFS/S3 for high-accuracy historical aggregations) + speed layer (Kafka Streams or Apache Flink for real-time approximate results) + serving layer (Druid or ClickHouse for sub-second queries). Kappa Architecture (streaming-only) is simpler but requires reprocessing for corrections.",
+    "tags": ["lambda-architecture", "Kafka", "Spark", "Flink", "real-time"]
+  },
+  {
+    "id": "CRA-009",
+    "source_id": "CRA-009",
+    "section_reference": "Disaster Recovery Reference §7.1",
+    "guideline_summary": "Implement active-passive or active-active DR strategy. Define RTO and RPO targets and test recovery procedures annually.",
+    "text": "Disaster Recovery reference architectures: Backup-and-Restore (RPO hours, RTO hours, lowest cost), Pilot Light (RPO minutes, RTO <1 hour, minimal active infrastructure), Warm Standby (RPO seconds, RTO minutes, partial capacity active), Active-Active (RPO ~0, RTO ~0, highest cost). Choose based on SLA requirements. Test recovery procedures at least annually.",
+    "tags": ["disaster-recovery", "RTO", "RPO", "active-active", "active-passive"]
+  },
+  {
+    "id": "CRA-010",
+    "source_id": "CRA-010",
+    "section_reference": "Observability Reference §8.1",
+    "guideline_summary": "OpenTelemetry standard for unified instrumentation. Use Grafana stack (Prometheus, Loki, Tempo) or commercial APM (Datadog, New Relic) for observability.",
+    "text": "Observability reference architecture: instrument all services with OpenTelemetry SDK. Collect metrics → Prometheus → Grafana. Collect logs → Loki or Elasticsearch. Collect traces → Jaeger or Tempo. Alternatively, use commercial APM (Datadog, New Relic, Honeycomb). Define SLO dashboards and alert on error budget burn rate.",
+    "tags": ["observability", "OpenTelemetry", "Prometheus", "Grafana", "Datadog"]
+  },
+  {
+    "id": "CRA-011",
+    "source_id": "CRA-011",
+    "section_reference": "Event-Driven Reference §9.1",
+    "guideline_summary": "Kafka as central event bus: partitioned topics for scalability, consumer groups for parallel processing, exactly-once semantics with transactions.",
+    "text": "Apache Kafka reference architecture as the central event bus: producers write domain events to partitioned topics. Consumer groups process events in parallel. Use Kafka Streams or ksqlDB for real-time stream processing. Enable exactly-once semantics (EOS) with transactional producers for financial transactions. Use Schema Registry (Avro/Protobuf) for schema evolution.",
+    "tags": ["Kafka", "event-driven", "event-bus", "schema-registry", "exactly-once"]
+  },
+  {
+    "id": "CRA-012",
+    "source_id": "CRA-012",
+    "section_reference": "Database Reference §10.1",
+    "guideline_summary": "Choose the right database for the workload: PostgreSQL for OLTP, Cassandra for high-write time-series, Elasticsearch for full-text search, Redis for caching.",
+    "text": "Database selection reference: PostgreSQL/MySQL for OLTP relational data; MongoDB/DynamoDB for flexible document data; Cassandra/ScyllaDB for high-write time-series or IoT data; Elasticsearch/OpenSearch for full-text search; Redis/Memcached for caching; BigQuery/Redshift/Snowflake for OLAP analytics; Neo4j for graph relationships. Avoid using one database for all workloads.",
+    "tags": ["database-selection", "PostgreSQL", "Cassandra", "Elasticsearch", "Redis"]
+  }
+]

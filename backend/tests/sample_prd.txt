@@ -1,0 +1,119 @@
+# Sample Product Requirements Document (PRD)
+# E-Commerce Platform — Architecture Review Candidate
+
+## 1. Overview
+
+**System Name:** ShopFlow — Real-Time E-Commerce Platform  
+**Document Type:** High-Level Design (HLD)  
+**Version:** 1.2  
+**Date:** March 2026
+
+ShopFlow is a B2C e-commerce platform targeting small to mid-sized retailers.  
+The platform supports product catalog browsing, cart management, real-time order processing,  
+payment integration, and seller dashboards.
+
+---
+
+## 2. System Components
+
+### 2.1 Frontend
+- React SPA hosted on a single EC2 instance (t3.medium)
+- No CDN for static assets
+- Connects directly to backend API via hardcoded IP
+
+### 2.2 Backend Services
+- **ProductService** (Node.js): Manages product catalog, search, and inventory
+- **OrderService** (Node.js): Handles order creation, updates, and history
+- **PaymentService** (Python): Integrates with Stripe for payment processing
+- **NotificationService** (Node.js): Sends emails and SMS via SendGrid and Twilio
+- **UserService** (Node.js): User registration, login, profile management
+
+### 2.3 API Layer
+- Single monolithic REST API (Express.js) serving all services
+- No API versioning in place
+- No rate limiting configured
+
+### 2.4 Data Stores
+- **PostgreSQL** (single instance, no replicas): Orders, users, payments
+- **MongoDB** (single node): Product catalog
+- **Redis** (not configured): Mentioned as future plan
+
+### 2.5 Authentication
+- JWT tokens with a 7-day expiry and HS256 signing
+- Tokens stored in localStorage on the client
+- No refresh token mechanism
+- Same JWT secret used across all services
+
+---
+
+## 3. Traffic Expectations
+
+- **Current Users:** 500 DAU  
+- **Peak QPS:** ~50 QPS on product search endpoint  
+- **Expected Growth:** 10x in 6 months after marketing campaign  
+- **Data Volume:** 100k products, 30k orders/month  
+- **Payment Throughput:** ~200 transactions/day
+
+---
+
+## 4. Reliability Requirements
+
+- **Target SLA:** 99.9% uptime  
+- **RTO:** 4 hours  
+- **RPO:** 24 hours (daily backups)  
+- **No disaster recovery plan documented**
+
+---
+
+## 5. Security
+
+- HTTPS enforced on frontend (self-signed certificate in staging)
+- Passwords hashed with bcrypt
+- No input validation middleware documented
+- Database credentials stored in a `.env` file committed to git
+- No WAF or DDoS protection configured
+
+---
+
+## 6. Deployment
+
+- All services deployed on a single EC2 instance (t3.large)
+- Manual deployment via SSH
+- No CI/CD pipeline
+- No health checks or auto-recovery
+
+---
+
+## 7. Integrations
+
+- **Stripe** (payment processing) — direct API call from OrderService
+- **SendGrid** (email) — API key in source code
+- **Twilio** (SMS) — API key in environment variable
+- **Google Maps API** — for delivery address validation
+
+---
+
+## 8. Observability
+
+- Console.log() statements throughout codebase
+- No centralized logging
+- No metrics or alerting
+- No distributed tracing
+
+---
+
+## 9. Known Issues (from dev team notes)
+
+- Product search queries take 3-8 seconds under load
+- Occasional duplicate orders created on payment retry
+- Service restarts cause ~5 minute downtime
+- Database connections not pooled properly
+
+---
+
+## 10. Architectural Patterns Used
+
+- Basic MVC structure within the monolith
+- REST APIs
+- No message queues configured (synchronous payment processing)
+- No caching layer in place

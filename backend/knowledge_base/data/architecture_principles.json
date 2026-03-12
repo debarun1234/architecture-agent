@@ -1,0 +1,98 @@
+[
+  {
+    "id": "AP-001",
+    "source_id": "AP-001",
+    "section_reference": "Scalability Principles §1.1",
+    "guideline_summary": "Design for horizontal scalability from day one. Stateless services can be scaled by adding instances behind a load balancer without shared state.",
+    "text": "Design for horizontal scalability from day one. Stateless services can be scaled by adding instances behind a load balancer without shared state. Avoid sticky sessions; use distributed session stores (Redis, Memcached) if session affinity is required.",
+    "tags": ["scalability", "stateless", "load-balancing"]
+  },
+  {
+    "id": "AP-002",
+    "source_id": "AP-002",
+    "section_reference": "Scalability Principles §1.2",
+    "guideline_summary": "Implement auto-scaling policies based on observable metrics (CPU, memory, RPS). Use predictive scaling for known traffic patterns.",
+    "text": "Implement auto-scaling policies based on observable metrics (CPU, memory, requests per second). Use predictive auto-scaling for known traffic patterns such as business hours or end-of-month batch jobs. Always define minimum and maximum instance counts.",
+    "tags": ["scalability", "auto-scaling", "metrics"]
+  },
+  {
+    "id": "AP-003",
+    "source_id": "AP-003",
+    "section_reference": "Reliability Principles §2.1",
+    "guideline_summary": "Implement circuit breakers for all external service calls to prevent cascading failures.",
+    "text": "Implement circuit breakers (e.g., Hystrix, Resilience4j, or cloud-native equivalents) for all external service calls to prevent cascading failures. A circuit breaker should transition to OPEN state after a threshold of failures and attempt recovery after a sleep window.",
+    "tags": ["reliability", "circuit-breaker", "resilience"]
+  },
+  {
+    "id": "AP-004",
+    "source_id": "AP-004",
+    "section_reference": "Reliability Principles §2.2",
+    "guideline_summary": "Use bulkhead pattern to isolate failures. Allocate separate thread pools or connection pools per downstream dependency.",
+    "text": "Use the bulkhead pattern to isolate failures between subsystems. Allocate separate thread pools, connection pools, or process limits per downstream dependency. If one dependency degrades, others remain unaffected.",
+    "tags": ["reliability", "bulkhead", "resilience"]
+  },
+  {
+    "id": "AP-005",
+    "source_id": "AP-005",
+    "section_reference": "Reliability Principles §2.3",
+    "guideline_summary": "All operations exposed to clients should be idempotent. Use idempotency keys for POST/PATCH operations.",
+    "text": "All operations exposed to clients should be idempotent. Use idempotency keys for POST and PATCH operations. Store idempotency key results with a TTL matching the client retry window. This prevents duplicate processing on retries.",
+    "tags": ["reliability", "idempotency", "api-design"]
+  },
+  {
+    "id": "AP-006",
+    "source_id": "AP-006",
+    "section_reference": "Observability Principles §3.1",
+    "guideline_summary": "Implement the three pillars of observability: structured logging, distributed tracing, and metrics. Use correlation IDs across all services.",
+    "text": "Implement the three pillars of observability: structured logging (JSON format), distributed tracing (OpenTelemetry), and metrics (Prometheus/Grafana). Propagate correlation IDs (trace IDs) across all service boundaries to enable end-to-end request tracing.",
+    "tags": ["observability", "logging", "tracing", "metrics"]
+  },
+  {
+    "id": "AP-007",
+    "source_id": "AP-007",
+    "section_reference": "Data Principles §4.1",
+    "guideline_summary": "Separate read and write workloads. Use CQRS or read replicas to prevent read-heavy workloads from impacting write performance.",
+    "text": "Separate read and write workloads to prevent contention. Use read replicas or CQRS (Command Query Responsibility Segregation) with an event store. For heavy read workloads, introduce a caching layer (Redis, Memcached) in front of the read path.",
+    "tags": ["data", "CQRS", "read-replica", "caching"]
+  },
+  {
+    "id": "AP-008",
+    "source_id": "AP-008",
+    "section_reference": "Data Principles §4.2",
+    "guideline_summary": "Define a clear data ownership model. Each microservice owns its data store. No direct cross-service database access.",
+    "text": "Define a clear data ownership model. In a microservices architecture, each service must own its data store exclusively. Cross-service data access must occur through well-defined APIs or events, never through shared database connections.",
+    "tags": ["data", "microservices", "data-ownership", "bounded-context"]
+  },
+  {
+    "id": "AP-009",
+    "source_id": "AP-009",
+    "section_reference": "Cost Principles §5.1",
+    "guideline_summary": "Right-size compute resources. Use spot/preemptible instances for fault-tolerant batch workloads to reduce costs by up to 90%.",
+    "text": "Right-size compute resources using profiling data and cloud cost advisor recommendations. Use spot or preemptible instances for fault-tolerant batch workloads to reduce costs up to 90%. Implement request-based auto-scaling (e.g., KEDA) to scale to zero during idle periods.",
+    "tags": ["cost", "right-sizing", "spot-instances"]
+  },
+  {
+    "id": "AP-010",
+    "source_id": "AP-010",
+    "section_reference": "Availability Principles §6.1",
+    "guideline_summary": "Design for multi-AZ deployment. Distribute traffic across at least 3 availability zones to tolerate AZ-level failures.",
+    "text": "Design for multi-Availability Zone (AZ) deployment. Distribute application instances and database replicas across at least 3 AZs. Configure health checks and failover policies so traffic is automatically rerouted on AZ failure. This achieves 99.99% baseline availability.",
+    "tags": ["availability", "multi-az", "high-availability"]
+  },
+  {
+    "id": "AP-011",
+    "source_id": "AP-011",
+    "section_reference": "API Design Principles §7.1",
+    "guideline_summary": "Version all APIs from v1. Use URI versioning (/api/v1/) or header versioning. Never break existing clients.",
+    "text": "Version all APIs starting from v1. Use URI versioning (/api/v1/resource) or header-based versioning (Accept: application/vnd.api+json;version=1). Never make breaking changes to existing API versions. Deprecate old versions with at least 6 months notice.",
+    "tags": ["api-design", "versioning", "backwards-compatibility"]
+  },
+  {
+    "id": "AP-012",
+    "source_id": "AP-012",
+    "section_reference": "Resilience Principles §8.1",
+    "guideline_summary": "Implement retry logic with exponential backoff and jitter for all transient failures. Set maximum retry limits.",
+    "text": "Implement retry logic with exponential backoff and random jitter for all transient failures (network timeouts, 5xx errors). Set a maximum retry count (typically 3-5 attempts). Use a dead letter queue for messages that exceed the retry limit.",
+    "tags": ["resilience", "retry", "backoff", "dead-letter-queue"]
+  }
+]

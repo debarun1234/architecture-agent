@@ -1,0 +1,82 @@
+[
+  {
+    "id": "ANT-001",
+    "source_id": "ANT-001",
+    "section_reference": "Anti-Patterns §1.1",
+    "guideline_summary": "Distributed Monolith: services that are deployed separately but are tightly coupled via synchronous calls or shared databases. Combines worst of both worlds.",
+    "text": "Distributed Monolith anti-pattern: services are deployed separately but are tightly coupled via synchronous REST calls or shared databases, creating distributed latency without independence benefits. Every change requires coordinated deployment of multiple services. Solution: introduce async messaging (Kafka) and enforce data ownership boundaries.",
+    "tags": ["anti-pattern", "distributed-monolith", "tight-coupling"]
+  },
+  {
+    "id": "ANT-002",
+    "source_id": "ANT-002",
+    "section_reference": "Anti-Patterns §1.2",
+    "guideline_summary": "God Service: a single service that handles too many responsibilities. Creates a scalability bottleneck and makes the codebase difficult to maintain.",
+    "text": "God Service anti-pattern: a single service accumulates too many responsibilities and becomes a monolith. It handles unrelated business domains, making it difficult to scale individual functions and creating a single point of failure. Solution: apply domain-driven design, identify bounded contexts, and split using domain decomposition.",
+    "tags": ["anti-pattern", "god-service", "single-responsibility"]
+  },
+  {
+    "id": "ANT-003",
+    "source_id": "ANT-003",
+    "section_reference": "Anti-Patterns §2.1",
+    "guideline_summary": "Chatty I/O: excessive fine-grained API calls between services. Increases latency and network overhead. Use batch APIs or GraphQL to reduce round trips.",
+    "text": "Chatty I/O anti-pattern: a service makes many sequential fine-grained API calls to a downstream service to assemble one logical response. Each call adds network latency. Solution: implement batch endpoints, use GraphQL for flexible data fetching, or introduce a BFF (Backend for Frontend) pattern to aggregate data server-side.",
+    "tags": ["anti-pattern", "chatty-io", "performance", "latency"]
+  },
+  {
+    "id": "ANT-004",
+    "source_id": "ANT-004",
+    "section_reference": "Anti-Patterns §2.2",
+    "guideline_summary": "N+1 Query Problem: fetching N records then making N individual database queries. Use JOINs, batch loading, or DataLoader to solve.",
+    "text": "N+1 Query Problem anti-pattern: fetching a list of N parent records, then executing one database query per record to fetch related child data, resulting in N+1 total queries. Solution: use SQL JOINs, ORM eager loading, the DataLoader batching pattern, or GraphQL DataLoader to batch and cache queries within a request.",
+    "tags": ["anti-pattern", "N+1", "database", "performance"]
+  },
+  {
+    "id": "ANT-005",
+    "source_id": "ANT-005",
+    "section_reference": "Anti-Patterns §3.1",
+    "guideline_summary": "Hardcoded Configuration: embedding secrets, URLs, and parameters in code. Creates security vulnerabilities and makes environment promotion impossible.",
+    "text": "Hardcoded Configuration anti-pattern: embedding API keys, database connection strings, feature flags, and environment-specific values in source code or config files committed to version control. Creates security vulnerabilities and prevents environment promotion. Solution: use environment variables, secret managers (AWS Secrets Manager, HashiCorp Vault), and externalized configuration (ConfigMaps).",
+    "tags": ["anti-pattern", "hardcoded-config", "security", "12-factor"]
+  },
+  {
+    "id": "ANT-006",
+    "source_id": "ANT-006",
+    "section_reference": "Anti-Patterns §3.2",
+    "guideline_summary": "Magic Numbers and Strings: unnamed constants scattered throughout code. Makes configuration changes risky and business rules invisible.",
+    "text": "Magic Numbers and Strings anti-pattern: using literal values (timeout=30000, retries=3, status='ACTIVE') without named constants, making the business logic opaque. Changes require a code search and redeploy. Solution: externalize to configuration, use named constants or enums, and store business parameters in a configuration service.",
+    "tags": ["anti-pattern", "magic-numbers", "maintainability"]
+  },
+  {
+    "id": "ANT-007",
+    "source_id": "ANT-007",
+    "section_reference": "Anti-Patterns §4.1",
+    "guideline_summary": "Single Point of Failure (SPOF): any component without redundancy that when it fails causes total system outage. Eliminate with clustering, replication, or redundant paths.",
+    "text": "Single Point of Failure (SPOF) anti-pattern: any component in the architecture that, when unavailable, causes complete system outage. Common SPOFs: single database master, single API gateway instance, single availability zone, single message broker node. Solution: implement redundancy, replication, multi-AZ deployment, and automated failover for every critical component.",
+    "tags": ["anti-pattern", "SPOF", "high-availability", "redundancy"]
+  },
+  {
+    "id": "ANT-008",
+    "source_id": "ANT-008",
+    "section_reference": "Anti-Patterns §4.2",
+    "guideline_summary": "Synchronous Chain: long chain of synchronous service calls increases latency multiplicatively and propagates failures. Break with async messaging.",
+    "text": "Synchronous Chain anti-pattern: a user request triggers a chain of 5+ synchronous service-to-service calls, where total latency is the sum of all downstream latencies. Any slow downstream service degrades the entire chain. Solution: break the chain with asynchronous messaging (Kafka, SQS), use the async-await pattern with parallel calls where possible, and apply the saga pattern for long-running workflows.",
+    "tags": ["anti-pattern", "synchronous-chain", "latency", "async"]
+  },
+  {
+    "id": "ANT-009",
+    "source_id": "ANT-009",
+    "section_reference": "Anti-Patterns §5.1",
+    "guideline_summary": "Missing Rate Limiting: APIs without rate limits are vulnerable to DoS attacks and abusive clients that monopolize shared resources.",
+    "text": "Missing Rate Limiting anti-pattern: APIs without rate limiting are vulnerable to Denial of Service attacks, abusive clients, and accidental thundering herd scenarios (e.g., all clients retrying simultaneously after an outage). Solution: implement token bucket or sliding window rate limiting at the API gateway level. Return 429 Too Many Requests with Retry-After headers.",
+    "tags": ["anti-pattern", "rate-limiting", "security", "DoS"]
+  },
+  {
+    "id": "ANT-010",
+    "source_id": "ANT-010",
+    "section_reference": "Anti-Patterns §5.2",
+    "guideline_summary": "Missing Idempotency: non-idempotent POST endpoints cause duplicate processing when clients retry on network failures.",
+    "text": "Missing Idempotency anti-pattern: POST/PATCH endpoints that are not idempotent cause duplicate order processing, duplicate payments, or duplicate notifications when clients retry after network failures. Solution: accept an Idempotency-Key header, store the result keyed by the client-supplied ID with a TTL, and return the cached result for duplicate requests.",
+    "tags": ["anti-pattern", "idempotency", "reliability", "duplicates"]
+  }
+]

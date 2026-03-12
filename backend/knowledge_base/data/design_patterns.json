@@ -1,0 +1,98 @@
+[
+  {
+    "id": "DP-001",
+    "source_id": "DP-001",
+    "section_reference": "Microservices Patterns §1.1",
+    "guideline_summary": "API Gateway pattern: Single entry point for all clients. Handles routing, authentication, rate limiting, and SSL termination.",
+    "text": "API Gateway pattern provides a single entry point for all client requests. The gateway handles cross-cutting concerns: authentication, authorization, rate limiting, SSL termination, request routing, load balancing, and request/response transformation. Use managed API gateways (Kong, AWS API Gateway, Google Apigee) in production.",
+    "tags": ["api-gateway", "microservices", "routing"]
+  },
+  {
+    "id": "DP-002",
+    "source_id": "DP-002",
+    "section_reference": "Microservices Patterns §1.2",
+    "guideline_summary": "Saga pattern for distributed transactions. Use choreography-based or orchestration-based sagas to maintain data consistency across services.",
+    "text": "Saga pattern manages distributed transactions across multiple microservices without two-phase commit. Use choreography-based sagas (services react to events) for loosely coupled systems, or orchestration-based sagas (central coordinator) for complex business processes. Each saga step must have a compensating transaction.",
+    "tags": ["saga", "distributed-transactions", "eventual-consistency"]
+  },
+  {
+    "id": "DP-003",
+    "source_id": "DP-003",
+    "section_reference": "Caching Patterns §2.1",
+    "guideline_summary": "Cache-aside (Lazy Loading) pattern: application loads data into cache on demand. Prevents cache bloat with infrequently accessed data.",
+    "text": "Cache-aside (Lazy Loading) pattern: the application first checks the cache (e.g., Redis), on cache miss it reads from the database and updates the cache. Set appropriate TTLs to prevent stale data. Use write-through or write-behind patterns for write-heavy workloads.",
+    "tags": ["cache-aside", "caching", "redis", "performance"]
+  },
+  {
+    "id": "DP-004",
+    "source_id": "DP-004",
+    "section_reference": "Data Patterns §3.1",
+    "guideline_summary": "Event Sourcing: persist state changes as immutable events. Enables audit trail, temporal queries, and event replay.",
+    "text": "Event Sourcing persists state changes as an immutable sequence of events rather than current state snapshots. Enables: full audit trail, temporal queries, event replay for debugging, and multiple read models from the same event stream. Best combined with CQRS. Use Kafka or EventStoreDB as the event log.",
+    "tags": ["event-sourcing", "CQRS", "kafka", "audit-trail"]
+  },
+  {
+    "id": "DP-005",
+    "source_id": "DP-005",
+    "section_reference": "Resilience Patterns §4.1",
+    "guideline_summary": "Sidecar pattern: deploy cross-cutting concerns (logging, tracing, service mesh proxy) as a co-located container alongside the application.",
+    "text": "Sidecar pattern deploys cross-cutting concerns as a separate process alongside the main application in the same pod or VM. Use sidecars for: service mesh proxy (Envoy), log aggregation, metrics collection, configuration management. Keeps application code clean of infrastructure concerns.",
+    "tags": ["sidecar", "service-mesh", "envoy", "cross-cutting-concerns"]
+  },
+  {
+    "id": "DP-006",
+    "source_id": "DP-006",
+    "section_reference": "Data Patterns §3.2",
+    "guideline_summary": "Database per Service: each microservice has its own private database schema. Prevents tight coupling and enables independent scaling.",
+    "text": "Database per Service pattern: each microservice has its own private data store (separate schema, separate database, or separate database server). This prevents tight coupling, enables independent scaling and technology choice, but requires eventual consistency between services. Synchronize data via events or API calls.",
+    "tags": ["database-per-service", "microservices", "bounded-context"]
+  },
+  {
+    "id": "DP-007",
+    "source_id": "DP-007",
+    "section_reference": "Messaging Patterns §5.1",
+    "guideline_summary": "Outbox pattern: write domain event and business data atomically to outbox table, then relay to message broker to guarantee at-least-once delivery.",
+    "text": "Outbox pattern guarantees at-least-once delivery of domain events. Write business data and the domain event to an outbox table within the same database transaction. A separate relay process polls the outbox and publishes events to the message broker (Kafka, RabbitMQ). Mark events as processed after acknowledgment.",
+    "tags": ["outbox", "messaging", "at-least-once", "kafka"]
+  },
+  {
+    "id": "DP-008",
+    "source_id": "DP-008",
+    "section_reference": "Deployment Patterns §6.1",
+    "guideline_summary": "Blue-Green deployment: run two identical production environments, switch traffic after validation. Enables instant rollback.",
+    "text": "Blue-Green deployment maintains two identical production environments (blue=active, green=new). Deploy to green, run smoke tests, then switch the load balancer to green. If issues arise, switch back to blue instantly. Requires double infrastructure cost during transition. Use for zero-downtime database migrations.",
+    "tags": ["blue-green", "deployment", "zero-downtime", "rollback"]
+  },
+  {
+    "id": "DP-009",
+    "source_id": "DP-009",
+    "section_reference": "Deployment Patterns §6.2",
+    "guideline_summary": "Canary releases: roll out to a small percentage of users first, gradually increase. Use metrics to detect regressions before full rollout.",
+    "text": "Canary release pattern rolls out new versions to a small subset of users (1-5%) first. Monitor error rates, latency, and business metrics. Gradually increase the percentage if metrics remain healthy. Use feature flags or traffic splitting in the load balancer/service mesh. Automate rollback if SLO thresholds are breached.",
+    "tags": ["canary", "deployment", "feature-flags", "progressive-delivery"]
+  },
+  {
+    "id": "DP-010",
+    "source_id": "DP-010",
+    "section_reference": "Scalability Patterns §7.1",
+    "guideline_summary": "CQRS: separate the read model from the write model. Allows independent scaling and optimization of read and write workloads.",
+    "text": "Command Query Responsibility Segregation (CQRS) separates the read (query) and write (command) data models. Write side uses a normalized schema optimized for writes and enforcing business rules. Read side uses denormalized projections optimized for specific query patterns. Synchronize via events. Enables independent scaling.",
+    "tags": ["CQRS", "scalability", "read-model", "write-model"]
+  },
+  {
+    "id": "DP-011",
+    "source_id": "DP-011",
+    "section_reference": "Integration Patterns §8.1",
+    "guideline_summary": "Strangler Fig pattern for legacy migration: incrementally replace legacy functionality by routing traffic to new services while the legacy system shrinks.",
+    "text": "Strangler Fig pattern incrementally migrates a legacy monolith to microservices. Introduce a facade (API gateway or proxy) in front of the legacy system. Gradually route specific functionality to new microservices. The legacy system shrinks as new services take over. Enables zero-risk incremental migration.",
+    "tags": ["strangler-fig", "migration", "legacy", "monolith"]
+  },
+  {
+    "id": "DP-012",
+    "source_id": "DP-012",
+    "section_reference": "Data Patterns §3.3",
+    "guideline_summary": "Sharding / Horizontal Partitioning: distribute data across multiple database nodes using a shard key. Enables linear scalability of write throughput.",
+    "text": "Sharding (horizontal partitioning) distributes data across multiple database nodes using a shard key. Choose a high-cardinality shard key that distributes data evenly. Consider range-based, hash-based, or directory-based sharding. Avoid hot partitions by including timestamps or random suffixes in the shard key.",
+    "tags": ["sharding", "partitioning", "scalability", "database"]
+  }
+]
