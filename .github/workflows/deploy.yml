@@ -188,7 +188,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     # Only apply on push to master/main (not on PRs — just plan)
-    environment: infrastructure
     steps:
       - uses: actions/checkout@v4
 
