@@ -1,0 +1,35 @@
+name: Branch Name Enforcement
+
+on:
+  pull_request:
+    branches: [feature/*]
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  validate-branch-name:
+    name: Validate branch name follows feature/* convention
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch naming convention
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Branch name: ${BRANCH}"
+
+          # Allow feature/, bugfix/, hotfix/, chore/, release/ prefixes
+          PATTERN="^(feature|bugfix|hotfix|chore|release)/.+"
+
+          if [[ ! "${BRANCH}" =~ $PATTERN ]]; then
+            echo "❌ Branch name '${BRANCH}' does not follow the required convention."
+            echo ""
+            echo "Branch names MUST follow one of these patterns:"
+            echo "  feature/<short-title>   — new features"
+            echo "  bugfix/<short-title>    — bug fixes"
+            echo "  hotfix/<short-title>    — critical production fixes"
+            echo "  chore/<short-title>     — maintenance, deps, config"
+            echo "  release/<version>       — release preparation"
+            echo ""
+            echo "Example: feature/add-vertex-ai-integration"
+            exit 1
+          fi
+
+          echo "✅ Branch name '${BRANCH}' follows the naming convention."
