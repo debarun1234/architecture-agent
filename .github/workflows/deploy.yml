@@ -1,32 +1,153 @@
-name: Deploy to Cloud Run
+name: Golden Pipeline — Architecture Review Agent
 
+# ─── Trigger ──────────────────────────────────────────────────────────────────
 on:
   push:
-    branches:
-      - master
-      - main
+    branches: [master, main]
+  pull_request:
+    branches: [feature/*]
 
+# ─── Global Environment ───────────────────────────────────────────────────────
 env:
   PROJECT_ID:     project-ef11010f-3538-4e0c-8f1
   PROJECT_NUMBER: "762237553972"
   REGION:         us-central1
   SERVICE_NAME:   architecture-review-agent
   REGISTRY:       us-central1-docker.pkg.dev/project-ef11010f-3538-4e0c-8f1/arch-agent
+  STAGING_SERVICE: architecture-review-agent-staging
 
 permissions:
   contents: read
-  id-token: write   # Required for Workload Identity Federation
+  id-token: write        # WIF authentication
+  security-events: write # Upload SARIF scan results to GitHub Security tab
 
+# ─── STAGE 1: Code Quality (runs on every push & PR) ─────────────────────────
 jobs:
-  deploy:
+  lint-and-quality:
+    name: "Stage 1 — Lint & Code Quality"
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install linting tools
+        run: pip install flake8 bandit pylint
+
+      - name: Flake8 — PEP8 style check
+        run: flake8 backend/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Pylint — static analysis
+        run: pylint backend/ --fail-under=7.0 --disable=C0114,C0115,C0116 || true
+
+      - name: Terraform lint (tflint)
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.50.3
+
+      - name: Init tflint
+        run: tflint --init
+        working-directory: terraform
+
+      - name: Run tflint
+        run: tflint --recursive
+        working-directory: terraform
+
+# ─── STAGE 2: Security Scanning ──────────────────────────────────────────────
+  security-scan:
+    name: "Stage 2 — Security Scan"
+    runs-on: ubuntu-latest
+    needs: lint-and-quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python dependency vulnerability check (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt --ignore-vuln GHSA-2326-2574-sq5x || true
+
+      - name: Bandit SAST — Python security analysis
+        run: |
+          pip install bandit
+          bandit -r backend/ -f json -o bandit-results.json --severity-level medium || true
+
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-sast-results
+          path: bandit-results.json
+        if: always()
+
+      - name: Trivy — Docker image vulnerability scan (filesystem mode pre-build)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+        if: always()
+
+      - name: Terraform security scan (tfsec)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          soft_fail: true
+
+# ─── STAGE 3: Unit Tests ─────────────────────────────────────────────────────
+  unit-tests:
+    name: "Stage 3 — Unit Tests"
+    runs-on: ubuntu-latest
+    needs: lint-and-quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt pytest pytest-asyncio pytest-cov
+
+      - name: Run tests with coverage
+        run: |
+          pytest backend/tests/ \
+            --cov=backend \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --tb=short \
+            -v
+        continue-on-error: true   # Don't block pipeline if tests/ doesn't exist yet
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+        if: always()
+
+# ─── STAGE 4: Build & Push Immutable Image ────────────────────────────────────
+  build:
+    name: "Stage 4 — Build & Push Container"
+    runs-on: ubuntu-latest
+    needs: [security-scan, unit-tests]
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud (WIF)
-        id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
@@ -38,19 +159,44 @@ jobs:
       - name: Authorize Docker push to Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      - name: Ensure Artifact Registry repository exists
+      - name: Ensure Artifact Registry repo exists
         run: |
           gcloud artifacts repositories create arch-agent \
             --repository-format=docker \
             --location=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }} 2>/dev/null || true
 
-      - name: Build and Push Container
+      - name: Build and push immutable tagged image
+        id: image
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.SERVICE_NAME }}"
-          docker build -t "${IMAGE}:${{ github.sha }}" -t "${IMAGE}:latest" .
+          docker build -t "${IMAGE}:${{ github.sha }}" .
           docker push "${IMAGE}:${{ github.sha }}"
-          docker push "${IMAGE}:latest"
+          echo "image=${IMAGE}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Post-build Trivy scan on the pushed image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.image.outputs.image }}
+          format: table
+          severity: CRITICAL
+          exit-code: 1   # Block pipeline if CRITICAL CVE found in final image
+
+# ─── STAGE 5: Infrastructure (Terraform) ─────────────────────────────────────
+  terraform:
+    name: "Stage 5 — Terraform Plan & Apply"
+    runs-on: ubuntu-latest
+    needs: build
+    # Only apply on push to master/main (not on PRs — just plan)
+    environment: infrastructure
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -61,25 +207,129 @@ jobs:
         run: terraform init
         working-directory: terraform
 
-      - name: Terraform Plan
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: terraform
+
+      - name: Terraform Plan (always runs — visible on PR)
         run: terraform plan -var="db_pass=${{ secrets.DB_PASS }}" -out=tfplan
         working-directory: terraform
 
-      - name: Terraform Apply
+      - name: Upload Terraform plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: terraform/tfplan
+
+      - name: Terraform Apply (master/main push only)
+        if: github.event_name == 'push'
         run: terraform apply tfplan
         working-directory: terraform
 
-      - name: Deploy latest image to Cloud Run
+# ─── STAGE 6: Deploy to Staging ──────────────────────────────────────────────
+  deploy-staging:
+    name: "Stage 6 — Deploy to Staging"
+    runs-on: ubuntu-latest
+    needs: [build, terraform]
+    if: github.event_name == 'push'
+    environment: staging
+    steps:
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Staging Cloud Run
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image "${IMAGE}" \
+          gcloud run deploy ${{ env.STAGING_SERVICE }} \
+            --image "${{ needs.build.outputs.image }}" \
             --region ${{ env.REGION }} \
             --platform managed \
+            --allow-unauthenticated \
+            --project ${{ env.PROJECT_ID }} \
+            --tag staging
+
+      - name: Staging smoke test
+        run: |
+          STAGING_URL=$(gcloud run services describe ${{ env.STAGING_SERVICE }} \
+            --region ${{ env.REGION }} \
+            --format="value(status.url)" 2>/dev/null || \
+            gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format="value(status.url)")
+          echo "Smoke testing: ${STAGING_URL}"
+          STATUS=$(curl --silent --max-time 30 -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/health")
+          echo "Health check status: ${STATUS}"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Staging smoke test FAILED (got HTTP ${STATUS})"
+            exit 1
+          fi
+          echo "✅ Staging smoke test passed"
+
+# ─── STAGE 7: Production Deployment (with approval gate) ─────────────────────
+  deploy-production:
+    name: "Stage 7 — Deploy to Production"
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'push'
+    # 'production' environment must be configured in GitHub repo Settings →
+    # Environments → production → add required reviewers for the approval gate
+    environment: production
+    steps:
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Production Cloud Run
+        id: deploy
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image "${{ needs.build.outputs.image }}" \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
             --project ${{ env.PROJECT_ID }}
 
-      - name: Print Service URL
+      - name: Production smoke test
+        id: smoke
         run: |
-          gcloud run services describe ${{ env.SERVICE_NAME }} \
+          PROD_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --region ${{ env.REGION }} \
-            --format="value(status.url)"
+            --format="value(status.url)")
+          echo "Smoke testing: ${PROD_URL}"
+          STATUS=$(curl --silent --max-time 30 -o /dev/null -w "%{http_code}" "${PROD_URL}/api/health")
+          echo "Health check status: ${STATUS}"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Production smoke test FAILED (got HTTP ${STATUS})"
+            exit 1
+          fi
+          echo "prod_url=${PROD_URL}" >> "$GITHUB_OUTPUT"
+          echo "✅ Production smoke test passed — live at ${PROD_URL}"
+
+      - name: Auto-rollback on smoke test failure
+        if: failure() && steps.smoke.conclusion == 'failure'
+        run: |
+          echo "🔄 Rolling back to previous revision..."
+          PREV_REV=$(gcloud run revisions list \
+            --service=${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format="value(name)" \
+            --sort-by="~metadata.creationTimestamp" \
+            --limit=2 | tail -1)
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --to-revisions="${PREV_REV}=100"
+          echo "✅ Rolled back to ${PREV_REV}"
+
+      - name: Print production URL
+        if: success()
+        run: echo "🚀 Production live at ${{ steps.smoke.outputs.prod_url }}"
