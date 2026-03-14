@@ -94,7 +94,8 @@ async def generate_artifacts(
         )
         artifacts["mermaid_diagram"] = _clean_mermaid(mermaid_resp.text or "")
     except Exception as e:
-        artifacts["mermaid_diagram"] = f"sequenceDiagram\n    %% Error generating diagram: {e}"
+        artifacts[
+            "mermaid_diagram"] = f"sequenceDiagram\n    %% Error generating diagram: {e}"
 
     # 2. OpenAPI Spec
     try:

@@ -8,6 +8,8 @@ import json
 import re
 from typing import Any
 
+from vertexai.generative_models import GenerationConfig
+
 SYSTEM_PROMPT = """You are an expert enterprise architect. Analyze the following design document and extract a comprehensive structured architectural context.
 
 Return ONLY valid JSON with this exact schema:
@@ -62,14 +64,13 @@ def _clean_json(raw: str) -> str:
     return raw.strip()
 
 
-from vertexai.generative_models import GenerationConfig
-
 async def extract_context(llm, doc_text: str, filename: str) -> dict[str, Any]:
     prompt = f"{SYSTEM_PROMPT}\n\n--- DOCUMENT: {filename} ---\n\n{doc_text[:30000]}"
     try:
         response = await llm.generate_content_async(
             prompt,
-            generation_config=GenerationConfig(response_mime_type="application/json")
+            generation_config=GenerationConfig(
+                response_mime_type="application/json")
         )
         raw = response.text or ""
         return json.loads(_clean_json(raw))

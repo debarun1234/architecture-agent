@@ -8,6 +8,8 @@ import json
 import re
 from typing import Any
 
+from vertexai.generative_models import GenerationConfig
+
 PROMPT_TEMPLATE = """You are an expert enterprise architect. Based on the bottlenecks identified in a system design review, propose detailed architectural improvements.
 
 SYSTEM CONTEXT:
@@ -81,8 +83,6 @@ def _format_guidelines(guidelines: list[dict]) -> str:
     )
 
 
-from vertexai.generative_models import GenerationConfig
-
 async def propose_improvements(
     llm,
     context: dict,
@@ -98,11 +98,12 @@ async def propose_improvements(
         bottlenecks=bn_str,
         guidelines=guide_str,
     )
-    
+
     try:
         response = await llm.generate_content_async(
             prompt,
-            generation_config=GenerationConfig(response_mime_type="application/json")
+            generation_config=GenerationConfig(
+                response_mime_type="application/json")
         )
         raw = response.text or ""
         return json.loads(_clean_json(raw))

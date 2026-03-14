@@ -8,6 +8,8 @@ import json
 import re
 from typing import Any
 
+from vertexai.generative_models import GenerationConfig
+
 PROMPT_TEMPLATE = """You are a senior enterprise architect conducting a critical architecture review.
 
 EXTRACTED SYSTEM CONTEXT:
@@ -79,8 +81,6 @@ def _clean_json(raw: str) -> str:
     return raw.strip()
 
 
-from vertexai.generative_models import GenerationConfig
-
 async def detect_bottlenecks(
     llm, context: dict, guidelines: list[dict]
 ) -> dict[str, Any]:
@@ -91,11 +91,12 @@ async def detect_bottlenecks(
         context=ctx_str,
         guidelines=guide_str,
     )
-    
+
     try:
         response = await llm.generate_content_async(
             prompt,
-            generation_config=GenerationConfig(response_mime_type="application/json")
+            generation_config=GenerationConfig(
+                response_mime_type="application/json")
         )
         raw = response.text or ""
         return json.loads(_clean_json(raw))

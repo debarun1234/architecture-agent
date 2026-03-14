@@ -3,11 +3,8 @@ Agent Orchestrator — coordinates the 6-step architecture review workflow.
 """
 from __future__ import annotations
 
-import json
 import io
 from typing import Any
-
-from vertexai.generative_models import GenerativeModel
 
 from agent.steps.step1_extract import extract_context
 from agent.steps.step2_retrieve import retrieve_knowledge
@@ -15,6 +12,7 @@ from agent.steps.step3_detect import detect_bottlenecks
 from agent.steps.step4_propose import propose_improvements
 from agent.steps.step5_artifacts import generate_artifacts
 from agent.steps.step6_verify import verify_and_cite
+from vertexai.generative_models import GenerativeModel
 
 
 def _parse_document(content: bytes, ext: str) -> str:
@@ -46,12 +44,12 @@ def _parse_document(content: bytes, ext: str) -> str:
 
 class AgentOrchestrator:
     STEPS = [
-        (1, "Extracting Context",       16),
-        (2, "Retrieving Knowledge",     33),
-        (3, "Detecting Bottlenecks",    50),
-        (4, "Proposing Improvements",   66),
-        (5, "Generating Artifacts",     83),
-        (6, "Verifying & Citing",       99),
+        (1, "Extracting Context", 16),
+        (2, "Retrieving Knowledge", 33),
+        (3, "Detecting Bottlenecks", 50),
+        (4, "Proposing Improvements", 66),
+        (5, "Generating Artifacts", 83),
+        (6, "Verifying & Citing", 99),
     ]
 
     def __init__(

@@ -1,24 +1,23 @@
-import os
-import uuid
 import asyncio
 import json
+import os
+import uuid
 from pathlib import Path
-from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from sse_starlette.sse import EventSourceResponse
-from dotenv import load_dotenv
 import aiofiles
 import vertexai
-
 from agent.orchestrator import AgentOrchestrator
+from dotenv import load_dotenv
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from sse_starlette.sse import EventSourceResponse
 
 load_dotenv()
 
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "project-ef11010f-3538-4e0c-8f1")
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT",
+                       "project-ef11010f-3538-4e0c-8f1")
 LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 app = FastAPI(
@@ -26,6 +25,7 @@ app = FastAPI(
     description="AI-powered architecture review system for PRD/HLD/LLD documents",
     version="1.0.0",
 )
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -138,7 +138,8 @@ async def get_results(job_id: str):
     if job["status"] != "complete":
         return JSONResponse(
             status_code=202,
-            content={"status": job["status"], "message": "Analysis still in progress"},
+            content={"status": job["status"],
+                     "message": "Analysis still in progress"},
         )
     return job["results"]
 

@@ -8,6 +8,8 @@ import json
 import re
 from typing import Any
 
+from vertexai.generative_models import GenerationConfig
+
 VERIFY_PROMPT = """You are a rigorous enterprise architecture auditor. Review all findings and verify them against the retrieved architecture guidelines.
 
 FULL ANALYSIS RESULTS:
@@ -16,7 +18,7 @@ FULL ANALYSIS RESULTS:
 AVAILABLE GUIDELINES:
 {guidelines}
 
-For each bottleneck and proposal, verify that it has supporting evidence from the retrieved guidelines. 
+For each bottleneck and proposal, verify that it has supporting evidence from the retrieved guidelines.
 Create a citations list and identify unverified claims.
 
 Return ONLY valid JSON with this exact schema:
@@ -58,8 +60,6 @@ def _format_guidelines(guidelines: list[dict]) -> str:
     )
 
 
-from vertexai.generative_models import GenerationConfig
-
 async def verify_and_cite(
     llm,
     results: dict,
@@ -77,15 +77,16 @@ async def verify_and_cite(
         results=res_str,
         guidelines=guide_str,
     )
-    
+
     try:
         response = await llm.generate_content_async(
             prompt,
-            generation_config=GenerationConfig(response_mime_type="application/json")
+            generation_config=GenerationConfig(
+                response_mime_type="application/json")
         )
         raw = response.text or ""
         return json.loads(_clean_json(raw))
-    except Exception as e:
+    except Exception:
         # Build minimal citations from available data
         citations = []
         for bn in review_data.get("bottlenecks", []):

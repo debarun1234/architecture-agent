@@ -8,12 +8,13 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from google.cloud.alloydb.connector import AsyncConnector
 import asyncpg
+from google.cloud.alloydb.connector import AsyncConnector
 from vertexai.language_models import TextEmbeddingModel
 
 # Use environment variables for GCP connections
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "project-ef11010f-3538-4e0c-8f1")
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT",
+                       "project-ef11010f-3538-4e0c-8f1")
 REGION = os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
 CLUSTER = os.getenv("ALLOYDB_CLUSTER", "arch-agent-cluster")
 INSTANCE = os.getenv("ALLOYDB_INSTANCE", "arch-agent-instance")
@@ -31,7 +32,8 @@ def _build_queries(context: dict) -> list[str]:
     # System components
     components = context.get("components", [])
     for c in components[:3]:
-        queries.append(f"{c.get('type', '')} {c.get('technology', '')} architecture pattern")
+        queries.append(
+            f"{c.get('type', '')} {c.get('technology', '')} architecture pattern")
 
     # Patterns used
     for p in context.get("architectural_patterns", [])[:3]:
@@ -40,11 +42,13 @@ def _build_queries(context: dict) -> list[str]:
     # Reliability
     rel = context.get("reliability_requirements", {})
     if rel.get("availability_target") not in (None, "Not specified", ""):
-        queries.append(f"high availability {rel['availability_target']} SLA reliability pattern")
+        queries.append(
+            f"high availability {rel['availability_target']} SLA reliability pattern")
 
     # Data stores
     for ds in context.get("data_stores", [])[:2]:
-        queries.append(f"{ds.get('type', '')} {ds.get('technology', '')} data consistency scalability")
+        queries.append(
+            f"{ds.get('type', '')} {ds.get('technology', '')} data consistency scalability")
 
     # Deployment
     cloud = context.get("cloud_provider", "")
@@ -58,7 +62,7 @@ def _build_queries(context: dict) -> list[str]:
     # Traffic
     traffic = context.get("traffic_expectations", {})
     if traffic.get("peak_qps") not in (None, "Not specified", ""):
-        queries.append(f"high QPS scalability load balancing caching")
+        queries.append("high QPS scalability load balancing caching")
 
     # Fallback generic queries
     queries += [
@@ -75,10 +79,11 @@ def _build_queries(context: dict) -> list[str]:
 async def retrieve_knowledge(context: dict) -> list[dict[str, Any]]:
     """Query the AlloyDB pgvector store and return deduplicated results."""
     queries = _build_queries(context)
-    
+
     # Generate embeddings for all queries at once
     try:
-        embedding_model = TextEmbeddingModel.from_pretrained("text-embedding-004")
+        embedding_model = TextEmbeddingModel.from_pretrained(
+            "text-embedding-004")
         embeddings = embedding_model.get_embeddings(queries[:8])
         query_vectors = [emb.values for emb in embeddings]
     except Exception as e:
@@ -93,7 +98,7 @@ async def retrieve_knowledge(context: dict) -> list[dict[str, Any]]:
     try:
         # Construct the AlloyDB Instance URI
         instance_uri = f"projects/{PROJECT_ID}/locations/{REGION}/clusters/{CLUSTER}/instances/{INSTANCE}"
-        
+
         conn: asyncpg.Connection = await connector.connect(
             instance_uri,
             "asyncpg",
@@ -102,31 +107,32 @@ async def retrieve_knowledge(context: dict) -> list[dict[str, Any]]:
             db=DB_NAME,
         )
         await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-        await conn.execute("SET enable_seqscan = off;") # Force index usage if available
+        # Force index usage if available
+        await conn.execute("SET enable_seqscan = off;")
 
         for q_vec in query_vectors:
             # We use pgvector's <=> operator for cosine distance
             query_sql = """
-                SELECT id, collection_name, source_id, section_reference, 
+                SELECT id, collection_name, source_id, section_reference,
                        guideline_summary, text_content,
                        1 - (embedding <=> $1::vector) AS similarity_score
                 FROM knowledge_entries
                 ORDER BY embedding <=> $1::vector
                 LIMIT $2
             """
-            
+
             # Note: passing lists to asyncpg for vector types requires formatting
             # or casting. We format it manually as a string representation of array.
             vector_str = "[" + ",".join(str(v) for v in q_vec) + "]"
-            
+
             rows = await conn.fetch(query_sql, vector_str, N_RESULTS)
-            
+
             for row in rows:
                 uid = f"{row['collection_name']}::{row['source_id']}"
                 if uid in seen_ids:
                     continue
                 seen_ids.add(uid)
-                
+
                 all_results.append({
                     "source_id": row["source_id"] or "UNKNOWN",
                     "section_reference": row["section_reference"] or "N/A",
@@ -137,8 +143,8 @@ async def retrieve_knowledge(context: dict) -> list[dict[str, Any]]:
                 })
 
     except Exception as e:
-         return [{"source_id": "DB_CONNECTION_ERROR", "section_reference": "N/A",
-                 "guideline_summary": f"Database error: {e}",
+        return [{"source_id": "DB_CONNECTION_ERROR", "section_reference": "N/A",
+                "guideline_summary": f"Database error: {e}",
                  "collection": "system", "score": 0.0}]
     finally:
         if 'conn' in locals() and not conn.is_closed():
