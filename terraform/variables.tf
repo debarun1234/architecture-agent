@@ -4,6 +4,12 @@ variable "project_id" {
   default     = "project-ef11010f-3538-4e0c-8f1"
 }
 
+variable "project_number" {
+  description = "The GCP project number (avoids Cloud Resource Manager API dependency)"
+  type        = string
+  default     = "762237553972"
+}
+
 variable "region" {
   description = "The GCP region for resources"
   type        = string

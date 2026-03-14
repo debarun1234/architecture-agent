@@ -44,9 +44,5 @@ resource "google_kms_crypto_key_iam_member" "alloydb_kms_binding" {
 resource "google_kms_crypto_key_iam_member" "secretmanager_kms_binding" {
   crypto_key_id = google_kms_crypto_key.secrets_key.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-secretmanager.iam.gserviceaccount.com"
-}
-
-data "google_project" "project" {
-  project_id = var.project_id
+  member        = "serviceAccount:service-${var.project_number}@gcp-sa-secretmanager.iam.gserviceaccount.com"
 }
