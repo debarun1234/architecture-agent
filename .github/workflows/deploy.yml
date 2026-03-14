@@ -3,13 +3,19 @@ name: Deploy to Cloud Run
 on:
   push:
     branches:
+      - master
       - main
 
 env:
-  PROJECT_ID: project-ef11010f-3538-4e0c-8f1
+  PROJECT_ID:     project-ef11010f-3538-4e0c-8f1
   PROJECT_NUMBER: "762237553972"
-  REGION: us-central1
-  SERVICE_NAME: architecture-review-agent
+  REGION:         us-central1
+  SERVICE_NAME:   architecture-review-agent
+  REGISTRY:       us-central1-docker.pkg.dev/project-ef11010f-3538-4e0c-8f1/arch-agent
+
+permissions:
+  contents: read
+  id-token: write   # Required for Workload Identity Federation
 
 jobs:
   deploy:
@@ -19,7 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Google Auth
+      - name: Authenticate to Google Cloud (WIF)
         id: auth
         uses: google-github-actions/auth@v2
         with:
@@ -29,15 +35,22 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Authorize Docker
-        run: gcloud auth configure-docker --quiet
+      - name: Authorize Docker push to Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Ensure Artifact Registry repository exists
+        run: |
+          gcloud artifacts repositories create arch-agent \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} 2>/dev/null || true
 
       - name: Build and Push Container
-        run: |-
-          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
-          docker tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
-          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.SERVICE_NAME }}"
+          docker build -t "${IMAGE}:${{ github.sha }}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${{ github.sha }}"
+          docker push "${IMAGE}:latest"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -48,15 +61,25 @@ jobs:
         run: terraform init
         working-directory: terraform
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -var="db_pass=${{ secrets.DB_PASS }}"
+      - name: Terraform Plan
+        run: terraform plan -var="db_pass=${{ secrets.DB_PASS }}" -out=tfplan
         working-directory: terraform
-        env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Update Cloud Run with Latest Image
-        run: |-
+      - name: Terraform Apply
+        run: terraform apply tfplan
+        working-directory: terraform
+
+      - name: Deploy latest image to Cloud Run
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image "${IMAGE}" \
             --region ${{ env.REGION }} \
-            --platform managed
+            --platform managed \
+            --project ${{ env.PROJECT_ID }}
+
+      - name: Print Service URL
+        run: |
+          gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format="value(status.url)"
