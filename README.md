@@ -2,23 +2,26 @@
 
 An AI-powered system that analyzes system design documents (PRD/HLD/LLD) and produces grounded architectural insights using a 6-step agentic workflow — RAG knowledge retrieval, bottleneck detection, improvement proposals, Mermaid diagrams, OpenAPI specs, and verified citations.
 
+## Architecture
+
+This project has been upgraded to a production-ready **Google Cloud Platform (GCP)** architecture:
+
+- **AI Engine**: Google Vertex AI `gemini-3.1-flash-light`
+- **Vector Database**: Cloud SQL (AlloyDB) for PostgreSQL with `pgvector`
+- **Hosting**: Google Cloud Run (Serverless)
+- **Infrastructure as Code**: Terraform (VPC, KMS, Secret Manager, IAM, SQL)
+- **CI/CD**: 7-stage Golden Pipeline via GitHub Actions using Workload Identity Federation
+
 ## Prerequisites
 
-- **Python 3.10+**
-- **Gemini API Key** — [Get one free at aistudio.google.com](https://aistudio.google.com)
+- **Python 3.10+** (for local development)
+- **Google Cloud SDK (`gcloud`)**
+- Application Default Credentials (ADC) configured:
+  ```bash
+  gcloud auth application-default login
+  ```
 
-## Quick Start (Windows)
-
-```bat
-cd backend
-pip install -r requirements.txt
-python knowledge_base\seed.py
-python main.py
-```
-
-Then open **http://localhost:8000** in your browser.
-
-## Manual Start
+## Local Development Setup
 
 ### 1. Install dependencies
 ```bash
@@ -26,84 +29,50 @@ cd backend
 pip install -r requirements.txt
 ```
 
-### 2. Seed the knowledge base (run once)
+### 2. Configure Environment Variables
+You must connect to the AlloyDB instance to run the app locally.
+```bash
+export GOOGLE_CLOUD_PROJECT="project-ef11010f-3538-4e0c-8f1"
+export GOOGLE_CLOUD_REGION="us-central1"
+export ALLOYDB_CLUSTER="arch-agent-cluster"
+export ALLOYDB_INSTANCE="arch-agent-instance"
+export ALLOYDB_USER="postgres"
+export ALLOYDB_PASS="<your-db-password>"
+export ALLOYDB_NAME="knowledge_base"
+```
+
+### 3. Seed the Knowledge Base (run once)
+This populates AlloyDB with `pgvector` embeddings using Vertex AI.
 ```bash
 cd backend
 python knowledge_base/seed.py
 ```
-Expected output: `🎉 Seeded 46 documents across 5 collections`
 
-### 3. Start the server
+### 4. Start the Server
 ```bash
 cd backend
 python main.py
 ```
+Open **http://localhost:8000** in your browser.
 
-### 4. Open the app
-Navigate to **http://localhost:8000**
+## CI/CD Golden Pipeline
 
-## Usage
+This repository enforces a **7-Stage Golden Pipeline** on any pull request or push to `master`:
 
-1. Enter your **Gemini API key** in the inline field or via **Settings**
-2. Drag & drop a design document (`.txt`, `.md`, `.pdf`, `.docx`)
-3. Click **Run Architecture Review**
-4. Watch the 6-step agent progress tracker
-5. Explore results across 6 tabs: **Context → Guidelines → Bottlenecks → Proposals → Artifacts → Citations**
-6. Click **Export JSON** to download the full structured review
+1. **Code Quality**: Flake8, Pylint, tflint
+2. **Security Scan**: pip-audit, Bandit SAST, Trivy image scan (Blocks on CRITICAL CVEs), tfsec
+3. **Unit Tests**: pytest + coverage
+4. **Build**: Immutable Docker container pushed to Artifact Registry
+5. **Infrastructure**: Terraform validate & apply (state held in GCS)
+6. **Staging**: Auto-deploys to `architecture-review-agent-staging` + automated smoke test
+7. **Production**: Requires manual approval gate in GitHub. Auto-rollbacks on smoke test failure.
 
-## Project Structure
+**Branch Protection**: Direct pushes to `master` are blocked. All features must be developed on `feature/*` branches and merged via Pull Request.
 
-```
-architecture-agent/
-├── backend/
-│   ├── main.py                     # FastAPI server
-│   ├── requirements.txt
-│   ├── agent/
-│   │   ├── orchestrator.py         # 6-step workflow engine
-│   │   └── steps/
-│   │       ├── step1_extract.py    # Context extraction
-│   │       ├── step2_retrieve.py   # RAG retrieval (ChromaDB)
-│   │       ├── step3_detect.py     # Bottleneck detection
-│   │       ├── step4_propose.py    # Improvement proposals
-│   │       ├── step5_artifacts.py  # Mermaid + OpenAPI + Summary
-│   │       └── step6_verify.py     # Citation & verification
-│   ├── knowledge_base/
-│   │   ├── seed.py                 # ChromaDB seeder
-│   │   └── data/
-│   │       ├── architecture_principles.json
-│   │       ├── design_patterns.json
-│   │       ├── anti_patterns.json
-│   │       ├── security_guidelines.json
-│   │       └── cloud_reference.json
-│   └── tests/
-│       └── sample_prd.txt          # Sample document for testing
-└── frontend/
-    ├── index.html
-    ├── style.css
-    └── app.js
-```
+## Security Controls
 
-## Output Format
-
-The agent returns a structured JSON object:
-
-```json
-{
-  "context": { ... },
-  "retrieved_guidelines": [ { "source_id", "section_reference", "guideline_summary" } ],
-  "bottlenecks": { "bottlenecks": [ { "id", "area", "severity", "title", "description" } ] },
-  "proposed_changes": { "proposals": [ { "id", "rationale", "impact_analysis" } ] },
-  "artifacts": { "mermaid_diagram", "openapi_spec", "review_summary" },
-  "citations": [ { "finding_id", "verification_status", "source_id" } ]
-}
-```
-
-## Knowledge Base
-
-| Collection | Entries | Coverage |
-|---|---|---|
-| `architecture_principles` | 12 | Scalability, reliability, observability, data, API design |
-| `design_patterns` | 12 | API Gateway, Saga, CQRS, Event Sourcing, Outbox, Sharding |
-| `anti_patterns` | 10 | Distributed Monolith, God Service, SPOF, Chatty I/O, N+1 |
-| `security_guidelines` | 10 | Zero Trust, OAuth2, RBAC, encryption, OWASP |
-| `cloud_reference` | 12 | AWS, GCP, Azure, Multi-Cloud, Kafka, Observability, DR |
+- **Keyless Deployment**: GitHub Actions uses Workload Identity Federation (WIF). No Service Account JSON keys exist.
+- **Data at Rest**: AlloyDB is encrypted via Customer-Managed Encryption Keys (CMEK) via Cloud KMS.
+- **Secret Management**: Database passwords are encrypted at rest in GCP Secret Manager and injected at runtime.
+- **Network Isolation**: Cloud Run communicates with AlloyDB exclusively over a private VPC Serverless Connector. Only HTTPS ingress is open.
+- **Principle of Least Privilege**: The Cloud Run service account has granular IAM bindings (no broad `owner`/`editor` roles).
