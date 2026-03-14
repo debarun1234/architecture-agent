@@ -4,21 +4,88 @@ resource "google_service_account" "cloud_run_sa" {
   project      = var.project_id
 }
 
+# ─── Vertex AI ───────────────────────────────────────────────────────────────
 resource "google_project_iam_member" "vertex_ai_user" {
   project = var.project_id
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
+# ─── AlloyDB ─────────────────────────────────────────────────────────────────
 resource "google_project_iam_member" "alloydb_client" {
   project = var.project_id
   role    = "roles/alloydb.client"
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
-# Permissive for demo/dev, usually limited to VPC
 resource "google_project_iam_member" "cloud_sql_client" {
   project = var.project_id
   role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# ─── Secret Manager ──────────────────────────────────────────────────────────
+resource "google_project_iam_member" "secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# ─── KMS ─────────────────────────────────────────────────────────────────────
+resource "google_kms_crypto_key_iam_member" "cloud_run_kms_decrypt" {
+  crypto_key_id = google_kms_crypto_key.secrets_key.id
+  role          = "roles/cloudkms.cryptoKeyDecrypter"
+  member        = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# ─── Cloud Trace (Observability) ─────────────────────────────────────────────
+resource "google_project_iam_member" "trace_agent" {
+  project = var.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# ─── Cloud Logging ───────────────────────────────────────────────────────────
+resource "google_project_iam_member" "log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# ─── Cloud Storage (document uploads & artifacts) ────────────────────────────
+resource "google_project_iam_member" "storage_object_creator" {
+  project = var.project_id
+  role    = "roles/storage.objectCreator"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+resource "google_project_iam_member" "storage_object_viewer" {
+  project = var.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# ─── GitHub Actions Deployer SA ──────────────────────────────────────────────
+resource "google_project_iam_member" "ci_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "ci_storage_admin" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "ci_artifact_writer" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "ci_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
 }
