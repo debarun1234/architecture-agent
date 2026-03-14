@@ -274,7 +274,7 @@ jobs:
   deploy-production:
     name: "Stage 7 — Deploy to Production"
     runs-on: ubuntu-latest
-    needs: deploy-staging
+    needs: [deploy-staging]
     if: github.event_name == 'push'
     # 'production' environment must be configured in GitHub repo Settings →
     # Environments → production → add required reviewers for the approval gate
