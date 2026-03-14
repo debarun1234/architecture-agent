@@ -1,0 +1,50 @@
+name: "CodeQL Security Bot"
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "feature/*" ]
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: '30 4 * * 0' # Run weekly on Sundays
+
+permissions:
+  security-events: write
+  packages: read
+  actions: read
+  contents: read
+
+jobs:
+  analyze:
+    name: "CodeQL Security Analysis"
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python', 'javascript' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Focus specifically on security: injection, XSS, viruses, sanitization
+        queries: security-extended,security-and-quality
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"

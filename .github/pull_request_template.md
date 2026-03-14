@@ -33,4 +33,4 @@
 ## Required Reviewers
 Please ensure the following are assigned as reviewers (or verify their automated checks pass):
 - [ ] **Human Reviewer** (Require 1 approval per branch protection rules)
-- [ ] **Copilot Codex Bot** (Automated AI Security & Sanitization Review via GitHub Actions — must report "Security Check: PASSED")
+- [ ] **GitHub CodeQL Security Bot** (Automated analysis — must report "All checks have passed", no SQLi/XSS/Vulnerabilities detected)
