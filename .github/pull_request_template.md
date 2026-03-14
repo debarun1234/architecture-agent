@@ -27,3 +27,10 @@
 ## Related Issues
 
 <!-- Link to any relevant issues or tickets (e.g., Fixes #123) -->
+
+---
+
+## Required Reviewers
+Please ensure the following are assigned as reviewers (or verify their automated checks pass):
+- [ ] **Human Reviewer** (Require 1 approval per branch protection rules)
+- [ ] **Copilot Codex Bot** (Automated AI Security & Sanitization Review via GitHub Actions — must report "Security Check: PASSED")
