@@ -1,0 +1,11 @@
+# GitHub CODEOWNERS
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Lock all GitHub Actions Workflows and CI/CD pipelines to the Repository Owner
+/.github/workflows/ @debarun1234
+
+# Lock Git hooks to the Repository Owner
+/.githooks/ @debarun1234
+
+# Lock Terraform Infrastructure definitions to the Repository Owner
+/terraform/ @debarun1234
