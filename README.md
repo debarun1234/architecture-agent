@@ -23,7 +23,15 @@ This project has been upgraded to a production-ready **Google Cloud Platform (GC
 
 ## Local Development Setup
 
-### 1. Install dependencies
+### 1. Enable Auto-Shift Commit Hook
+This repository uses a pre-commit hook that **automatically shifts** any commits erroneously made on `master` to a new `feature/auto-shift-<timestamp>` branch.
+
+Run this once after cloning:
+```bash
+git config core.hooksPath .githooks
+```
+
+### 2. Install dependencies
 ```bash
 cd backend
 pip install -r requirements.txt

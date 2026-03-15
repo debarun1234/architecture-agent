@@ -167,15 +167,19 @@ jobs:
             --location=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }} 2>/dev/null || true
 
-      - name: Build and push immutable tagged image
+      - name: Build immutable tagged image
         id: image
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.SERVICE_NAME }}"
           docker build -t "${IMAGE}:${{ github.sha }}" .
-          docker push "${IMAGE}:${{ github.sha }}"
           echo "image=${IMAGE}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
+      - name: Push image to Artifact Registry
+        if: github.event_name == 'push'
+        run: docker push "${{ steps.image.outputs.image }}"
+
       - name: Post-build Trivy scan on the pushed image
+        if: github.event_name == 'push'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ steps.image.outputs.image }}
