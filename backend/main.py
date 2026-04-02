@@ -33,9 +33,9 @@ async def startup_event():
     # Initialize Vertex AI on startup
     vertexai.init(project=PROJECT_ID, location=LOCATION)
     print(f"Vertex AI initialized for project {PROJECT_ID} in {LOCATION}")
-    
+
     # Pre-warm local PII Redaction NLP pipeline
-    redactor = PIIRedactor()
+    PIIRedactor()
     print("PII Redaction NLP engine pre-warmed.")
 
 app.add_middleware(

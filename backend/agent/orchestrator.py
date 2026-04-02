@@ -81,7 +81,7 @@ class AgentOrchestrator:
         redactor = PIIRedactor()
         doc_text = redactor.redact(raw_doc_text)
         filename = redactor.redact(filename)
-        
+
         # Explicit memory sweep to discard PII
         del raw_doc_text
 
