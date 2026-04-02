@@ -12,6 +12,7 @@ from agent.steps.step3_detect import detect_bottlenecks
 from agent.steps.step4_propose import propose_improvements
 from agent.steps.step5_artifacts import generate_artifacts
 from agent.steps.step6_verify import verify_and_cite
+from agent.pii_redactor import PIIRedactor
 from vertexai.generative_models import GenerativeModel
 
 
@@ -74,7 +75,15 @@ class AgentOrchestrator:
 
     async def run(self, content: bytes, ext: str, filename: str) -> dict:
         # Parse document
-        doc_text = _parse_document(content, ext)
+        raw_doc_text = _parse_document(content, ext)
+
+        # Step 0 — "Zero-Trust" Security: Local PII Redaction
+        redactor = PIIRedactor()
+        doc_text = redactor.redact(raw_doc_text)
+        filename = redactor.redact(filename)
+
+        # Explicit memory sweep to discard PII
+        del raw_doc_text
 
         results: dict[str, Any] = {}
 

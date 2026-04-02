@@ -18,7 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements and install
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
 # Copy the application code (we mount backend logic to root and serve frontend static files)
 COPY backend/ /app/
 COPY frontend/ /app/frontend/

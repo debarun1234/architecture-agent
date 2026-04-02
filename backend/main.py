@@ -12,6 +12,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from agent.pii_redactor import PIIRedactor
 from sse_starlette.sse import EventSourceResponse
 
 load_dotenv()
@@ -32,6 +33,10 @@ async def startup_event():
     # Initialize Vertex AI on startup
     vertexai.init(project=PROJECT_ID, location=LOCATION)
     print(f"Vertex AI initialized for project {PROJECT_ID} in {LOCATION}")
+
+    # Pre-warm local PII Redaction NLP pipeline
+    PIIRedactor()
+    print("PII Redaction NLP engine pre-warmed.")
 
 app.add_middleware(
     CORSMiddleware,
