@@ -65,16 +65,17 @@ resource "google_project_iam_member" "storage_object_viewer" {
   member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
-# ─── GitHub Actions Deployer SA ──────────────────────────────────────────────
-resource "google_project_iam_member" "ci_run_admin" {
+# Reduced from roles/run.admin to roles/run.developer (deploy only, no admin)
+resource "google_project_iam_member" "ci_run_developer" {
   project = var.project_id
-  role    = "roles/run.admin"
+  role    = "roles/run.developer"
   member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
 }
 
-resource "google_project_iam_member" "ci_storage_admin" {
+# Reduced from roles/storage.admin to roles/storage.objectAdmin (object-level only)
+resource "google_project_iam_member" "ci_storage_object_admin" {
   project = var.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/storage.objectAdmin"
   member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
 }
 
@@ -84,8 +85,9 @@ resource "google_project_iam_member" "ci_artifact_writer" {
   member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
 }
 
-resource "google_project_iam_member" "ci_sa_user" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
+# Scoped serviceAccountUser to only the Cloud Run SA (not project-wide)
+resource "google_service_account_iam_member" "ci_sa_user" {
+  service_account_id = google_service_account.cloud_run_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
 }

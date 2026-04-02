@@ -40,7 +40,7 @@ pip install -r requirements.txt
 ### 2. Configure Environment Variables
 You must connect to the AlloyDB instance to run the app locally.
 ```bash
-export GOOGLE_CLOUD_PROJECT="<your project id>"
+export GOOGLE_CLOUD_PROJECT="project-ef11010f-3538-4e0c-8f1"
 export GOOGLE_CLOUD_REGION="us-central1"
 export ALLOYDB_CLUSTER="arch-agent-cluster"
 export ALLOYDB_INSTANCE="arch-agent-instance"
