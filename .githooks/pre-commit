@@ -3,26 +3,25 @@
 # Get the current branch name
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-# If the user is trying to commit directly to master or main
+# Only intercept commits directly on master or main
 if [ "$BRANCH" = "master" ] || [ "$BRANCH" = "main" ]; then
     echo -e "\n⚠️  Warning: You are attempting to commit directly to the protected '$BRANCH' branch."
-    
-    # Generate a new feature branch name based on the current timestamp
+
+    # Always create a FRESH feature branch with a new timestamp
     NEW_BRANCH="feature/auto-shift-$(date +%Y%m%d-%H%M%S)"
-    
+
     echo "🔄 Auto-shifting this commit to a new branch: $NEW_BRANCH"
-    
-    # Create and checkout the new branch
-    # The staged files (index) will travel with us to the new branch
+
+    # Create and checkout the new branch (staged changes travel with us)
     git checkout -b "$NEW_BRANCH" >/dev/null 2>&1
-    
-    if [ $? -eq 0 ]; then
-        echo -e "✅ Successfully shifted to $NEW_BRANCH. Proceeding with commit...\n"
-        exit 0
-    else
+
+    if [ $? -ne 0 ]; then
         echo -e "❌ Failed to create branch $NEW_BRANCH. Commit aborted.\n"
         exit 1
     fi
+
+    echo -e "✅ Successfully shifted to $NEW_BRANCH. Proceeding with commit...\n"
+    echo -e "💡 After committing, run:\n   git push -u origin $NEW_BRANCH\n   gh pr create --base master --title \"<your title>\" --body \"<description>\"\n"
 fi
 
 # Allow the commit to proceed normally on non-master branches
