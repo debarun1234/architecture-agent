@@ -259,11 +259,12 @@ jobs:
             --tag staging
 
       - name: Fetch Staging URL
+        id: fetch-url
         run: |
           STAGING_URL=$(gcloud run services describe ${{ env.STAGING_SERVICE }} \
             --region ${{ env.REGION }} \
             --format="value(status.url)")
-          echo "STAGING_URL=${STAGING_URL}" >> $GITHUB_ENV
+          echo "url=${STAGING_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Generate Identity Token for Staging
         id: staging-auth
@@ -272,13 +273,13 @@ jobs:
           workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: github-actions-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           token_format: 'id_token'
-          id_token_audience: '${{ env.STAGING_URL }}'
+          id_token_audience: '${{ steps.fetch-url.outputs.url }}'
           id_token_include_email: true
 
       - name: Staging smoke test
         run: |
-          echo "Smoke testing: ${{ env.STAGING_URL }}"
-          STATUS=$(curl --silent -H "Authorization: Bearer ${{ steps.staging-auth.outputs.id_token }}" --max-time 30 -o /dev/null -w "%{http_code}" "${{ env.STAGING_URL }}/api/health")
+          echo "Smoke testing: ${{ steps.fetch-url.outputs.url }}"
+          STATUS=$(curl --silent -H "Authorization: Bearer ${{ steps.staging-auth.outputs.id_token }}" --max-time 30 -o /dev/null -w "%{http_code}" "${{ steps.fetch-url.outputs.url }}/api/health")
           echo "Health check status: ${STATUS}"
           if [ "$STATUS" != "200" ]; then
             echo "❌ Staging smoke test FAILED (got HTTP ${STATUS})"
