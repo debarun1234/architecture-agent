@@ -80,6 +80,10 @@ class AgentOrchestrator:
         # Step 0 — "Zero-Trust" Security: Local PII Redaction
         redactor = PIIRedactor()
         doc_text = redactor.redact(raw_doc_text)
+        filename = redactor.redact(filename)
+        
+        # Explicit memory sweep to discard PII
+        del raw_doc_text
 
         results: dict[str, Any] = {}
 
