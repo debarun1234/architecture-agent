@@ -41,8 +41,16 @@ resource "google_kms_crypto_key_iam_member" "alloydb_kms_binding" {
 }
 
 # Allow Secret Manager service agent to use the secrets key
+# Must provision the SM service identity first — it only exists after the API is enabled
+resource "google_project_service_identity" "secretmanager_sa" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "secretmanager.googleapis.com"
+}
+
 resource "google_kms_crypto_key_iam_member" "secretmanager_kms_binding" {
   crypto_key_id = google_kms_crypto_key.secrets_key.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:service-${var.project_number}@gcp-sa-secretmanager.iam.gserviceaccount.com"
+  member        = "serviceAccount:${google_project_service_identity.secretmanager_sa.email}"
+  depends_on    = [google_project_service_identity.secretmanager_sa]
 }

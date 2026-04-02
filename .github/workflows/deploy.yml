@@ -253,7 +253,8 @@ jobs:
             --image "${{ needs.build.outputs.image }}" \
             --region ${{ env.REGION }} \
             --platform managed \
-            --allow-unauthenticated \
+            --service-account "arch-agent-run-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
+            --no-allow-unauthenticated \
             --project ${{ env.PROJECT_ID }} \
             --tag staging
 
@@ -266,7 +267,8 @@ jobs:
             --region ${{ env.REGION }} \
             --format="value(status.url)")
           echo "Smoke testing: ${STAGING_URL}"
-          STATUS=$(curl --silent --max-time 30 -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/health")
+          TOKEN=$(gcloud auth print-identity-token)
+          STATUS=$(curl --silent -H "Authorization: Bearer ${TOKEN}" --max-time 30 -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/health")
           echo "Health check status: ${STATUS}"
           if [ "$STATUS" != "200" ]; then
             echo "❌ Staging smoke test FAILED (got HTTP ${STATUS})"
@@ -300,7 +302,7 @@ jobs:
             --image "${{ needs.build.outputs.image }}" \
             --region ${{ env.REGION }} \
             --platform managed \
-            --allow-unauthenticated \
+            --service-account "arch-agent-run-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
             --project ${{ env.PROJECT_ID }}
 
       - name: Production smoke test

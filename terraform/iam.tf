@@ -66,14 +66,14 @@ resource "google_project_iam_member" "storage_object_viewer" {
 }
 
 # Reduced from roles/run.admin to roles/run.developer (deploy only, no admin)
-resource "google_project_iam_member" "ci_run_developer" {
+resource "google_project_iam_member" "ci_run_admin" {
   project = var.project_id
   role    = "roles/run.developer"
   member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
 }
 
 # Reduced from roles/storage.admin to roles/storage.objectAdmin (object-level only)
-resource "google_project_iam_member" "ci_storage_object_admin" {
+resource "google_project_iam_member" "ci_storage_admin" {
   project = var.project_id
   role    = "roles/storage.objectAdmin"
   member  = "serviceAccount:github-actions-deployer@${var.project_id}.iam.gserviceaccount.com"
