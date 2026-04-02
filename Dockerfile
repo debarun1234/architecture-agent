@@ -27,4 +27,4 @@ COPY frontend/ /app/frontend/
 COPY backend/knowledge_base/data/ /app/knowledge_base/data/
 
 # Run the FastAPI server via Uvicorn
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port \"${PORT:-8000}\""]
