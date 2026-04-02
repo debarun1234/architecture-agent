@@ -2,8 +2,8 @@ import asyncio
 import json
 import os
 import uuid
+from pathlib import Path
 
-import aiofiles
 import vertexai
 from agent.orchestrator import AgentOrchestrator
 from dotenv import load_dotenv
@@ -47,14 +47,22 @@ app.add_middleware(
 # In-memory job store (production: use Redis)
 jobs: dict[str, dict] = {}
 
-# Frontend is hosted on Vercel. Redirect root and any non-API paths there.
+# Frontend is hosted on Vercel. Root and all non-API paths redirect there.
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://arch-review-ai.vercel.app")
 
 
 @app.get("/")
-async def redirect_to_frontend():
-    """Permanently redirect browser traffic to the Vercel-hosted frontend."""
+async def redirect_root():
+    """Redirect browser traffic at root to the Vercel-hosted frontend."""
     return RedirectResponse(url=FRONTEND_URL, status_code=301)
+
+
+@app.get("/{path:path}")
+async def redirect_non_api(path: str):
+    """Redirect any non-API path to the Vercel frontend (e.g. /about, /results)."""
+    if path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not found")
+    return RedirectResponse(url=f"{FRONTEND_URL}/{path}", status_code=301)
 
 
 @app.get("/api/health")
