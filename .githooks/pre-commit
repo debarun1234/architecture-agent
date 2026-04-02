@@ -21,7 +21,7 @@ if [ "$BRANCH" = "master" ] || [ "$BRANCH" = "main" ]; then
     fi
 
     echo -e "✅ Successfully shifted to $NEW_BRANCH. Proceeding with commit...\n"
-    echo -e "💡 After committing, run:\n   git push -u origin $NEW_BRANCH\n   gh pr create --base master --title \"<your title>\" --body \"<description>\"\n"
+    echo -e "💡 After committing, run:\n   git push -u origin $NEW_BRANCH\n   gh pr create --base \"$BRANCH\" --title \"<your title>\" --body \"<description>\"\n"
 fi
 
 # Allow the commit to proceed normally on non-master branches
