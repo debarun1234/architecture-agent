@@ -72,12 +72,3 @@ resource "google_project_service" "alloydb" {
   service            = "alloydb.googleapis.com"
   disable_on_destroy = false
 }
-
-# ─── IAM: Cloud Run SA → AlloyDB ─────────────────────────────────────────────
-# roles/alloydb.superuser is NOT a project-level role — use alloydb.client instead
-resource "google_project_iam_member" "alloydb_client" {
-  project    = var.project_id
-  role       = "roles/alloydb.client"
-  member     = "serviceAccount:${google_service_account.cloud_run_sa.email}"
-  depends_on = [google_project_service.alloydb]
-}
