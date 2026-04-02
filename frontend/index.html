@@ -89,6 +89,15 @@
         <h2 class="hero-title">Enterprise Architecture Review</h2>
         <p class="hero-sub">Upload a PRD, HLD, or LLD document and receive grounded architectural insights, bottleneck
           detection, improvement proposals, and generated artifacts — in seconds.</p>
+        <div class="hero-stats">
+          <div class="hero-stat"><span class="hero-stat-num">56</span><span class="hero-stat-label">Curated Guidelines</span></div>
+          <div class="hero-stat-div"></div>
+          <div class="hero-stat"><span class="hero-stat-num">6</span><span class="hero-stat-label">AI-Powered Steps</span></div>
+          <div class="hero-stat-div"></div>
+          <div class="hero-stat"><span class="hero-stat-num">4</span><span class="hero-stat-label">File Formats</span></div>
+          <div class="hero-stat-div"></div>
+          <div class="hero-stat"><span class="hero-stat-num">100%</span><span class="hero-stat-label">PII Protected</span></div>
+        </div>
       </div>
 
       <div class="upload-card">
@@ -260,11 +269,11 @@
         <!-- Tabs -->
         <div class="tabs">
           <button class="tab active" data-tab="context">📋 Context</button>
-          <button class="tab" data-tab="guidelines">📚 Guidelines</button>
-          <button class="tab" data-tab="bottlenecks">⚠️ Bottlenecks</button>
-          <button class="tab" data-tab="proposals">🏗️ Proposals</button>
+          <button class="tab" data-tab="guidelines">📚 Guidelines <span class="tab-badge" id="badge-guidelines"></span></button>
+          <button class="tab" data-tab="bottlenecks">⚠️ Bottlenecks <span class="tab-badge" id="badge-bottlenecks"></span></button>
+          <button class="tab" data-tab="proposals">🏗️ Proposals <span class="tab-badge" id="badge-proposals"></span></button>
           <button class="tab" data-tab="artifacts">🎨 Artifacts</button>
-          <button class="tab" data-tab="citations">✅ Citations</button>
+          <button class="tab" data-tab="citations">✅ Citations <span class="tab-badge" id="badge-citations"></span></button>
         </div>
 
         <!-- Tab Content -->
@@ -311,6 +320,12 @@
               <button class="artifact-tab" data-artifact="summary">Review Summary</button>
             </div>
             <div class="artifact-pane active" id="artifact-diagram">
+              <div class="mermaid-toolbar">
+                <button class="btn-ghost btn-sm" id="btn-fullscreen-diagram" title="View fullscreen">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                  Fullscreen
+                </button>
+              </div>
               <div class="mermaid-container" id="mermaid-container"></div>
             </div>
             <div class="artifact-pane" id="artifact-openapi">
@@ -339,8 +354,17 @@
   </main>
 
   <footer class="footer">
-    <p>ArchReviewAI — Enterprise Architecture Agent &mdash; Powered by Gemini AI &amp; ChromaDB RAG</p>
+    <p>ArchReviewAI — Enterprise Architecture Agent &mdash; Powered by Gemini AI &amp; AlloyDB pgvector RAG</p>
   </footer>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Fullscreen Diagram Overlay -->
+  <div class="fullscreen-overlay" id="fullscreen-overlay">
+    <button class="fullscreen-close" id="fullscreen-close" title="Close fullscreen">✕</button>
+    <div class="fullscreen-diagram" id="fullscreen-diagram"></div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

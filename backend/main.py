@@ -49,9 +49,26 @@ app.add_middleware(
 # In-memory job store (production: use Redis)
 jobs: dict[str, dict] = {}
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+# Resolve frontend directory for both Docker container and local dev:
+# - Container: backend/ -> /app/, frontend/ -> /app/frontend/  => parent / "frontend"
+# - Local dev:  running from backend/                           => parent.parent / "frontend"
+_frontend_container = Path(__file__).parent / "frontend"
+_frontend_local = Path(__file__).parent.parent / "frontend"
+FRONTEND_DIR = _frontend_container if _frontend_container.exists() else _frontend_local
+# Only serve the built public/static output — never the source tree.
+# Priority: Next.js static chunks > out/ (static export) > public/ > fallback to root.
+_STATIC_CANDIDATES = [
+    FRONTEND_DIR / "out",                  # next export output
+    FRONTEND_DIR / ".next" / "static",     # Next.js chunk assets
+    FRONTEND_DIR / "public",               # static public folder
+    FRONTEND_DIR / "dist",                 # generic build output
+    FRONTEND_DIR / "build",               # CRA / alt build output
+]
+FRONTEND_STATIC_DIR = next(
+    (p for p in _STATIC_CANDIDATES if p.exists()), FRONTEND_DIR
+)
 if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_STATIC_DIR)), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)

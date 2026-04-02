@@ -4,9 +4,19 @@ name: Golden Pipeline — Architecture Review Agent
 on:
   push:
     branches: [master, main]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - 'terraform/**'
+      - 'requirements*.txt'
   pull_request:
     branches: [master, main]
     types: [opened, synchronize, reopened]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - 'terraform/**'
+      - 'requirements*.txt'
 
 # ─── Global Environment ───────────────────────────────────────────────────────
 env:
@@ -24,9 +34,31 @@ permissions:
 
 # ─── STAGE 1: Code Quality (runs on every push & PR) ─────────────────────────
 jobs:
+
+  # Detect which parts of the repo changed so we can skip Docker/Cloud Run
+  # build stages when only frontend files were modified.
+  changes:
+    name: "Detect Changed Paths"
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'Dockerfile'
+              - 'terraform/**'
+              - 'requirements*.txt'
+
   lint-and-quality:
     name: "Stage 1 — Lint & Code Quality"
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -62,7 +94,8 @@ jobs:
   security-scan:
     name: "Stage 2 — Security Scan"
     runs-on: ubuntu-latest
-    needs: lint-and-quality
+    needs: [lint-and-quality, changes]
+    if: needs.changes.outputs.backend == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -108,7 +141,8 @@ jobs:
   unit-tests:
     name: "Stage 3 — Unit Tests"
     runs-on: ubuntu-latest
-    needs: lint-and-quality
+    needs: [lint-and-quality, changes]
+    if: needs.changes.outputs.backend == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -142,7 +176,10 @@ jobs:
   build:
     name: "Stage 4 — Build & Push Container"
     runs-on: ubuntu-latest
-    needs: [security-scan, unit-tests]
+    needs: [security-scan, unit-tests, changes]
+    # Skip this job (and all downstream Cloud Run stages) when only frontend
+    # files changed — the Docker image does not need to be rebuilt.
+    if: needs.changes.outputs.backend == 'true'
     outputs:
       image: ${{ steps.image.outputs.image }}
     steps:

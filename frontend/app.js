@@ -2,6 +2,11 @@
    ArchReviewAI — Frontend Application Logic
    ============================================================ */
 
+// Detect environment: use full Cloud Run URL in production, relative paths locally
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? ''
+  : 'https://architecture-review-agent-vtqsnscssq-uc.a.run.app';
+
 // ── State ────────────────────────────────────────────────────
 const state = {
   file: null,
@@ -21,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Settings ─────────────────────────────────────────────────
 function loadSettings() {
-  const model = localStorage.getItem('gemini_model') || 'gemini-3.1-flash-light-preview-preview';
+  const model = localStorage.getItem('gemini_model') || 'gemini-3.1-flash-light-preview';
   document.getElementById('input-model').value = model;
 }
 
@@ -88,6 +93,51 @@ function bindEvents() {
     const body = header.nextElementSibling;
     body.classList.toggle('open');
   });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeModal();
+      closeFullscreen();
+    }
+  });
+
+  // Fullscreen diagram
+  document.getElementById('btn-fullscreen-diagram').addEventListener('click', openFullscreen);
+  document.getElementById('fullscreen-close').addEventListener('click', closeFullscreen);
+  document.getElementById('fullscreen-overlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeFullscreen();
+  });
+}
+
+// ── Toast Notifications ──────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add('show'));
+  });
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 350);
+  }, 3000);
+}
+
+// ── Fullscreen Diagram ────────────────────────────────────────
+function openFullscreen() {
+  const overlay = document.getElementById('fullscreen-overlay');
+  const src = document.getElementById('mermaid-container').innerHTML;
+  document.getElementById('fullscreen-diagram').innerHTML = src;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFullscreen() {
+  document.getElementById('fullscreen-overlay').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // ── File Handling ─────────────────────────────────────────────
@@ -134,7 +184,7 @@ async function startAnalysis() {
   formData.append('model', model);
 
   try {
-    const resp = await fetch('/api/analyze', { method: 'POST', body: formData });
+    const resp = await fetch(`${API_BASE}/api/analyze`, { method: 'POST', body: formData });
     if (!resp.ok) {
       const err = await resp.json();
       throw new Error(err.detail || 'Server error');
@@ -152,7 +202,7 @@ function startPolling() {
   if (state.polling) clearInterval(state.polling);
   state.polling = setInterval(async () => {
     try {
-      const resp = await fetch(`/api/status/${state.jobId}`);
+      const resp = await fetch(`${API_BASE}/api/status/${state.jobId}`);
       const data = await resp.json();
       updateProgress(data);
       if (data.status === 'complete') {
@@ -168,7 +218,7 @@ function startPolling() {
 }
 
 async function fetchResults() {
-  const resp = await fetch(`/api/results/${state.jobId}`);
+  const resp = await fetch(`${API_BASE}/api/results/${state.jobId}`);
   state.results = await resp.json();
   setAnalyzeLoading(false);
   renderResults(state.results);
@@ -198,7 +248,22 @@ function renderResults(results) {
   renderProposals(results.proposed_changes || {});
   renderArtifacts(results.artifacts || {});
   renderCitations(results.citations || [], results.verification_notes || {});
+  updateTabBadges(results);
   switchTab('context');
+  showToast('Architecture review complete!', 'success');
+}
+
+function updateTabBadges(results) {
+  const counts = {
+    'badge-guidelines': (results.retrieved_guidelines || []).length,
+    'badge-bottlenecks': ((results.bottlenecks || {}).bottlenecks || []).length,
+    'badge-proposals': ((results.proposed_changes || {}).proposals || []).length,
+    'badge-citations': (results.citations || []).length,
+  };
+  Object.entries(counts).forEach(([id, count]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = count > 0 ? count : '';
+  });
 }
 
 // Context
@@ -567,14 +632,15 @@ function exportJSON() {
   a.href = URL.createObjectURL(blob);
   a.download = 'architecture_review.json';
   a.click();
+  showToast('Exported architecture_review.json', 'info');
 }
 
 function copyOpenAPI() {
   const code = document.getElementById('openapi-code').textContent;
   navigator.clipboard.writeText(code).then(() => {
-    const btn = document.getElementById('btn-copy-openapi');
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy', 2000);
+    showToast('OpenAPI spec copied to clipboard', 'info');
+  }).catch(() => {
+    showToast('Failed to copy — try selecting and copying manually', 'error');
   });
 }
 
