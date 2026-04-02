@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import uuid
-from pathlib import Path
 
 import aiofiles
 import vertexai
@@ -10,8 +9,7 @@ from agent.orchestrator import AgentOrchestrator
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, RedirectResponse
 from agent.pii_redactor import PIIRedactor
 from sse_starlette.sse import EventSourceResponse
 
@@ -49,35 +47,14 @@ app.add_middleware(
 # In-memory job store (production: use Redis)
 jobs: dict[str, dict] = {}
 
-# Resolve frontend directory for both Docker container and local dev:
-# - Container: backend/ -> /app/, frontend/ -> /app/frontend/  => parent / "frontend"
-# - Local dev:  running from backend/                           => parent.parent / "frontend"
-_frontend_container = Path(__file__).parent / "frontend"
-_frontend_local = Path(__file__).parent.parent / "frontend"
-FRONTEND_DIR = _frontend_container if _frontend_container.exists() else _frontend_local
-# Only serve the built public/static output — never the source tree.
-# Priority: Next.js static chunks > out/ (static export) > public/ > fallback to root.
-_STATIC_CANDIDATES = [
-    FRONTEND_DIR / "out",                  # next export output
-    FRONTEND_DIR / ".next" / "static",     # Next.js chunk assets
-    FRONTEND_DIR / "public",               # static public folder
-    FRONTEND_DIR / "dist",                 # generic build output
-    FRONTEND_DIR / "build",               # CRA / alt build output
-]
-FRONTEND_STATIC_DIR = next(
-    (p for p in _STATIC_CANDIDATES if p.exists()), FRONTEND_DIR
-)
-if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_STATIC_DIR)), name="static")
+# Frontend is hosted on Vercel. Redirect root and any non-API paths there.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://arch-review-ai.vercel.app")
 
 
-@app.get("/", response_class=HTMLResponse)
-async def serve_frontend():
-    index_path = FRONTEND_DIR / "index.html"
-    if index_path.exists():
-        async with aiofiles.open(index_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=await f.read())
-    return HTMLResponse("<h1>Frontend not found</h1>", status_code=404)
+@app.get("/")
+async def redirect_to_frontend():
+    """Permanently redirect browser traffic to the Vercel-hosted frontend."""
+    return RedirectResponse(url=FRONTEND_URL, status_code=301)
 
 
 @app.get("/api/health")
