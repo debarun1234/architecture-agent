@@ -4,9 +4,19 @@ name: Golden Pipeline — Architecture Review Agent
 on:
   push:
     branches: [master, main]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - 'terraform/**'
+      - 'requirements*.txt'
   pull_request:
     branches: [master, main]
     types: [opened, synchronize, reopened]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - 'terraform/**'
+      - 'requirements*.txt'
 
 # ─── Global Environment ───────────────────────────────────────────────────────
 env:
