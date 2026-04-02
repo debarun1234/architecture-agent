@@ -49,7 +49,12 @@ app.add_middleware(
 # In-memory job store (production: use Redis)
 jobs: dict[str, dict] = {}
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+# Resolve frontend directory for both Docker container and local dev:
+# - Container: backend/ -> /app/, frontend/ -> /app/frontend/  => parent / "frontend"
+# - Local dev:  running from backend/                           => parent.parent / "frontend"
+_frontend_container = Path(__file__).parent / "frontend"
+_frontend_local = Path(__file__).parent.parent / "frontend"
+FRONTEND_DIR = _frontend_container if _frontend_container.exists() else _frontend_local
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
