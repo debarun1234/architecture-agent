@@ -13,7 +13,7 @@ class PIIRedactor:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(PIIRedactor, cls).__new__(cls)
-            
+
             # Explicitly configure Presidio to use our lightweight spacy dictionary
             configuration = {
                 "nlp_engine_name": "spacy",
@@ -21,9 +21,9 @@ class PIIRedactor:
             }
             provider = NlpEngineProvider(nlp_configuration=configuration)
             nlp_engine = provider.create_engine()
-            
+
             cls._instance.analyzer = AnalyzerEngine(
-                nlp_engine=nlp_engine, 
+                nlp_engine=nlp_engine,
                 supported_languages=["en"]
             )
             cls._instance.anonymizer = AnonymizerEngine()
