@@ -2,7 +2,7 @@ name: Branch Name Enforcement
 
 on:
   pull_request:
-    branches: [feature/*]
+    branches: [master, main]
     types: [opened, synchronize, reopened, edited]
 
 jobs:
