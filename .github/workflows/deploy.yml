@@ -258,17 +258,27 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --tag staging
 
-      - name: Staging smoke test
+      - name: Fetch Staging URL
         run: |
           STAGING_URL=$(gcloud run services describe ${{ env.STAGING_SERVICE }} \
             --region ${{ env.REGION }} \
-            --format="value(status.url)" 2>/dev/null || \
-            gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --region ${{ env.REGION }} \
             --format="value(status.url)")
-          echo "Smoke testing: ${STAGING_URL}"
-          TOKEN=$(gcloud auth print-identity-token)
-          STATUS=$(curl --silent -H "Authorization: Bearer ${TOKEN}" --max-time 30 -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/health")
+          echo "STAGING_URL=${STAGING_URL}" >> $GITHUB_ENV
+
+      - name: Generate Identity Token for Staging
+        id: staging-auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          token_format: 'id_token'
+          id_token_audience: '${{ env.STAGING_URL }}'
+          id_token_include_email: true
+
+      - name: Staging smoke test
+        run: |
+          echo "Smoke testing: ${{ env.STAGING_URL }}"
+          STATUS=$(curl --silent -H "Authorization: Bearer ${{ steps.staging-auth.outputs.id_token }}" --max-time 30 -o /dev/null -w "%{http_code}" "${{ env.STAGING_URL }}/api/health")
           echo "Health check status: ${STATUS}"
           if [ "$STATUS" != "200" ]; then
             echo "❌ Staging smoke test FAILED (got HTTP ${STATUS})"
