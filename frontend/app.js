@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Settings ─────────────────────────────────────────────────
 function loadSettings() {
   const inputModel = document.getElementById('input-model');
-  const defaultModel = 'gemini-2.0-flash-001';
+  const defaultModel = 'gemini-3.1-flash-lite-preview';
   const storedModel = localStorage.getItem('gemini_model') || defaultModel;
   const hasStoredModelOption = Array.from(inputModel.options).some((opt) => opt.value === storedModel);
   inputModel.value = hasStoredModelOption ? storedModel : defaultModel;
