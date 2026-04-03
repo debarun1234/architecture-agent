@@ -293,7 +293,13 @@ jobs:
             --service-account "arch-agent-run-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
             --no-allow-unauthenticated \
             --project ${{ env.PROJECT_ID }} \
-            --tag staging
+            --tag staging \
+            --memory 2Gi \
+            --cpu 2 \
+            --startup-cpu-boost \
+            --min-instances 0 \
+            --max-instances 3 \
+            --timeout 300
 
       - name: Fetch Staging URL
         id: fetch-url
@@ -316,13 +322,22 @@ jobs:
       - name: Staging smoke test
         run: |
           echo "Smoke testing: ${{ steps.fetch-url.outputs.url }}"
-          STATUS=$(curl --silent -H "Authorization: Bearer ${{ steps.staging-auth.outputs.id_token }}" --max-time 30 -o /dev/null -w "%{http_code}" "${{ steps.fetch-url.outputs.url }}/api/health")
-          echo "Health check status: ${STATUS}"
-          if [ "$STATUS" != "200" ]; then
-            echo "❌ Staging smoke test FAILED (got HTTP ${STATUS})"
-            exit 1
-          fi
-          echo "✅ Staging smoke test passed"
+          STATUS=0
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl --silent \
+              -H "Authorization: Bearer ${{ steps.staging-auth.outputs.id_token }}" \
+              --max-time 30 -o /dev/null -w "%{http_code}" \
+              "${{ steps.fetch-url.outputs.url }}/api/health")
+            echo "Attempt ${i}: Health check status: ${STATUS}"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Staging smoke test passed"
+              exit 0
+            fi
+            echo "Waiting 15s before retry..."
+            sleep 15
+          done
+          echo "❌ Staging smoke test FAILED after 5 attempts (last HTTP ${STATUS})"
+          exit 1
 
 # ─── STAGE 7: Production Deployment (with approval gate) ─────────────────────
   deploy-production:
