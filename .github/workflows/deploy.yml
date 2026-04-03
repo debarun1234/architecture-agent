@@ -13,12 +13,6 @@ on:
   pull_request:
     branches: [master, main]
     types: [opened, synchronize, reopened]
-    paths:
-      - 'backend/**'
-      - 'Dockerfile'
-      - 'terraform/**'
-      - 'requirements*.txt'
-      - '.github/workflows/deploy.yml'
 
 # ─── Global Environment ───────────────────────────────────────────────────────
 env:
