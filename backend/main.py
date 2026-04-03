@@ -187,7 +187,7 @@ async def redirect_root():
 @app.get("/{path:path}")
 async def redirect_non_api(path: str):
     """Redirect any non-API path to the Vercel frontend (e.g. /about, /results)."""
-    if path.startswith("api/"):
+    if path == "api" or path.startswith("api/"):
         raise HTTPException(status_code=404, detail="Not found")
     return RedirectResponse(url=f"{FRONTEND_URL}/{path}", status_code=301)
 
