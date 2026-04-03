@@ -6,6 +6,7 @@ using Vertex AI TextEmbeddingModel.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -57,13 +58,15 @@ def _load_local_knowledge_base(db_error: Exception) -> list[dict]:
                     "score": 0.5,
                     "full_text": full_text,
                 })
-        except Exception:
+        except Exception as file_err:
+            logging.warning("knowledge_base: failed to load %s: %s", filename, file_err)
             continue
     if not results:
         return [{"source_id": "DB_CONNECTION_ERROR", "section_reference": "N/A",
                  "guideline_summary": f"Database error: {db_error}",
                  "collection": "system", "score": 0.0}]
-    return results
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:40]
 
 
 def _build_queries(context: dict) -> list[str]:
