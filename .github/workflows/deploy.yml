@@ -12,11 +12,9 @@ on:
   pull_request:
     branches: [master, main]
     types: [opened, synchronize, reopened]
-    paths:
-      - 'backend/**'
-      - 'Dockerfile'
-      - 'terraform/**'
-      - 'requirements*.txt'
+    # No paths filter on PRs — pipeline must always run so required status
+    # checks are reported. Without this, commits that only touch workflow
+    # files leave the PR stuck at "Waiting for status".
 
 # ─── Global Environment ───────────────────────────────────────────────────────
 env:
