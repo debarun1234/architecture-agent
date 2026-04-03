@@ -327,7 +327,7 @@ jobs:
             STATUS=$(curl --silent \
               -H "Authorization: Bearer ${{ steps.staging-auth.outputs.id_token }}" \
               --max-time 30 -o /dev/null -w "%{http_code}" \
-              "${{ steps.fetch-url.outputs.url }}/api/health")
+              "${{ steps.fetch-url.outputs.url }}/api/health" || echo "000")
             echo "Attempt ${i}: Health check status: ${STATUS}"
             if [ "$STATUS" = "200" ]; then
               echo "✅ Staging smoke test passed"
