@@ -47,15 +47,15 @@ def _load_local_knowledge_base(db_error: Exception) -> list[dict]:
         try:
             entries = json.loads(path.read_text(encoding="utf-8"))
             for entry in entries:
+                summary = entry.get("guideline_summary") or entry.get("text", "")
+                full_text = entry.get("text") or entry.get("guideline_summary", "")
                 results.append({
                     "source_id": entry.get("source_id", entry.get("id", "UNKNOWN")),
                     "section_reference": entry.get("section_reference", "N/A"),
-                    "guideline_summary": entry.get("guideline_summary",
-                                                    entry.get("text", "")),
+                    "guideline_summary": summary,
                     "collection": collection,
                     "score": 0.5,
-                    "full_text": entry.get("text",
-                                           entry.get("guideline_summary", "")),
+                    "full_text": full_text,
                 })
         except Exception:
             continue
