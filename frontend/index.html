@@ -65,7 +65,8 @@
         <div class="form-group">
           <label>Vertex AI Model</label>
           <select id="input-model">
-            <!-- Populated dynamically from /api/models on page load -->
+            <!-- Populated dynamically from /api/models on page load; fallback populated by JS if API unreachable -->
+            <option value="gemini-3.1-flash-lite-preview" selected>Gemini 3.1 Flash Lite — Recommended</option>
           </select>
           <span class="form-hint">Uses GCP Application Default Credentials automatically.</span>
         </div>
