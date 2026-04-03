@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Settings ─────────────────────────────────────────────────
 function loadSettings() {
-  const model = localStorage.getItem('gemini_model') || 'gemini-3.1-flash-light-preview';
+  const model = localStorage.getItem('gemini_model') || 'gemini-3.1-flash-lite-preview';
   document.getElementById('input-model').value = model;
 }
 
