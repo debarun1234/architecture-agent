@@ -33,6 +33,10 @@ resource "google_cloud_run_v2_service" "default" {
         value = var.region
       }
       env {
+        name  = "GOOGLE_CLOUD_LOCATION"
+        value = "global"
+      }
+      env {
         name  = "ALLOYDB_CLUSTER"
         value = "arch-agent-cluster"
       }
