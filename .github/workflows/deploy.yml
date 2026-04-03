@@ -296,7 +296,7 @@ jobs:
             --tag staging \
             --memory 2Gi \
             --cpu 2 \
-            --startup-cpu-boost \
+            --cpu-boost \
             --min-instances 0 \
             --max-instances 3 \
             --timeout 300
