@@ -75,7 +75,7 @@ jobs:
       # Secrets required in GitHub repo → Settings → Secrets:
       #   VERCEL_TOKEN      — from vercel.com/account/tokens
       #   VERCEL_ORG_ID     — team_AY7NE8Ny3cHCXglCNmWWqDo2
-      #   VERCEL_PROJECT_ID — prj_New1NKyB1mGy8jJxhRMlgq30wYTP
+      #   VERCEL_PROJECT_ID — prj_BssKKcfNvwIf13xKXDsvn0NiH8Ja  (arch-review-ai)
       - name: Deploy to Vercel production
         run: vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
