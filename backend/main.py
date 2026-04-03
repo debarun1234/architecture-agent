@@ -16,7 +16,7 @@ from sse_starlette.sse import EventSourceResponse
 load_dotenv()
 
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT",
-                       "project-ef11010f-3538-4e0c-8f1")
+                       "arch-agent-ai")
 LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 app = FastAPI(
