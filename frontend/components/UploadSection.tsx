@@ -58,8 +58,8 @@ const STEP_CARDS = [
 ];
 
 const MODELS = [
-  { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite', badge: 'Recommended' },
-  { value: 'gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+  { value: 'gemini-2.0-flash-001', label: 'Gemini 2.0 Flash', badge: 'Recommended' },
+  { value: 'gemini-2.0-flash-lite-001', label: 'Gemini 2.0 Flash Lite', badge: 'Fastest' },
   { value: 'gemini-1.5-pro-001', label: 'Gemini 1.5 Pro', badge: 'Highest Quality' },
 ];
 
