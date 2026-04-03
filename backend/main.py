@@ -59,7 +59,7 @@ async def health():
 @app.post("/api/analyze")
 async def analyze(
     document: UploadFile = File(...),
-    model: str = Form(default="gemini-3.1-flash-light-preview-preview"),
+    model: str = Form(default="gemini-3.1-flash-lite-preview"),
 ):
     """Upload a design document and start the architecture review workflow."""
     job_id = str(uuid.uuid4())

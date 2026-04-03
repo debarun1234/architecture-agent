@@ -26,8 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Settings ─────────────────────────────────────────────────
 function loadSettings() {
-  const model = localStorage.getItem('gemini_model') || 'gemini-3.1-flash-light-preview';
-  document.getElementById('input-model').value = model;
+  const inputModel = document.getElementById('input-model');
+  const defaultModel = 'gemini-3.1-flash-lite-preview';
+  const storedModel = localStorage.getItem('gemini_model') || defaultModel;
+  const hasStoredModelOption = Array.from(inputModel.options).some((opt) => opt.value === storedModel);
+  inputModel.value = hasStoredModelOption ? storedModel : defaultModel;
 }
 
 function saveSettings() {

@@ -58,9 +58,9 @@ const STEP_CARDS = [
 ];
 
 const MODELS = [
-  { value: 'gemini-3.1-flash-light-preview', label: 'Gemini 3.1 Flash Light', badge: 'Recommended' },
-  { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', badge: 'Highest Quality' },
-  { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash', badge: 'Fastest' },
+  { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite', badge: 'Recommended' },
+  { value: 'gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+  { value: 'gemini-1.5-pro-001', label: 'Gemini 1.5 Pro', badge: 'Highest Quality' },
 ];
 
 const COLOR_CLASSES: Record<string, { bg: string; icon: string; border: string; step: string }> = {
@@ -215,7 +215,7 @@ export default function UploadSection({ onAnalyze, error }: UploadSectionProps) 
                 >
                   {MODELS.map((m) => (
                     <option key={m.value} value={m.value}>
-                      {m.label} — {m.badge}
+                      {m.label}{m.badge ? ` — ${m.badge}` : ''}
                     </option>
                   ))}
                 </select>
