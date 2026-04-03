@@ -22,6 +22,18 @@ export async function submitAnalysis(file: File, model: string): Promise<string>
   return data.job_id;
 }
 
+export interface ModelOption {
+  value: string;
+  label: string;
+  badge: string;
+}
+
+export async function fetchModels(): Promise<{ models: ModelOption[]; default: string }> {
+  const res = await fetch(`${getApiBase()}/api/models`);
+  if (!res.ok) throw new Error('Failed to fetch models');
+  return res.json();
+}
+
 export async function pollJobStatus(jobId: string): Promise<import('./types').JobStatus> {
   const res = await fetch(`${getApiBase()}/api/status/${jobId}`);
   if (!res.ok) throw new Error('Failed to fetch job status');
