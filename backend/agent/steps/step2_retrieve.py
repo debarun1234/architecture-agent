@@ -5,7 +5,10 @@ using Vertex AI TextEmbeddingModel.
 """
 from __future__ import annotations
 
+import json
+import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import asyncpg
@@ -23,6 +26,47 @@ DB_PASS = os.getenv("ALLOYDB_PASS", "postgres")
 DB_NAME = os.getenv("ALLOYDB_NAME", "knowledge_base")
 
 N_RESULTS = 4  # results per query per collection (implicitly handled in SQL)
+
+# Path to bundled JSON knowledge files — used as fallback when AlloyDB is unavailable
+_DATA_DIR = Path(__file__).parent.parent.parent / "knowledge_base" / "data"
+_COLLECTION_MAP = {
+    "architecture_principles.json": "architecture_principles",
+    "design_patterns.json": "design_patterns",
+    "anti_patterns.json": "anti_patterns",
+    "security_guidelines.json": "security_guidelines",
+    "cloud_reference.json": "cloud_reference",
+}
+
+
+def _load_local_knowledge_base(db_error: Exception) -> list[dict]:
+    """Load knowledge entries from local JSON files when AlloyDB is unavailable."""
+    results = []
+    for filename, collection in _COLLECTION_MAP.items():
+        path = _DATA_DIR / filename
+        if not path.exists():
+            continue
+        try:
+            entries = json.loads(path.read_text(encoding="utf-8"))
+            for entry in entries:
+                summary = entry.get("guideline_summary") or entry.get("text", "")
+                full_text = entry.get("text") or entry.get("guideline_summary", "")
+                results.append({
+                    "source_id": entry.get("source_id", entry.get("id", "UNKNOWN")),
+                    "section_reference": entry.get("section_reference", "N/A"),
+                    "guideline_summary": summary,
+                    "collection": collection,
+                    "score": 0.5,
+                    "full_text": full_text,
+                })
+        except Exception as file_err:
+            logging.warning("knowledge_base: failed to load %s: %s", filename, file_err)
+            continue
+    if not results:
+        return [{"source_id": "DB_CONNECTION_ERROR", "section_reference": "N/A",
+                 "guideline_summary": f"Database error: {db_error}",
+                 "collection": "system", "score": 0.0}]
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:40]
 
 
 def _build_queries(context: dict) -> list[str]:
@@ -143,9 +187,7 @@ async def retrieve_knowledge(context: dict) -> list[dict[str, Any]]:
                 })
 
     except Exception as e:
-        return [{"source_id": "DB_CONNECTION_ERROR", "section_reference": "N/A",
-                "guideline_summary": f"Database error: {e}",
-                 "collection": "system", "score": 0.0}]
+        return _load_local_knowledge_base(e)
     finally:
         if 'conn' in locals() and not conn.is_closed():
             await conn.close()

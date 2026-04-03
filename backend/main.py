@@ -17,7 +17,7 @@ load_dotenv()
 
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT",
                        "project-ef11010f-3538-4e0c-8f1")
-LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 
 app = FastAPI(
     title="Enterprise Architecture Review Agent",
@@ -51,15 +51,31 @@ jobs: dict[str, dict] = {}
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://arch-review-ai.vercel.app")
 
 
+# Single source of truth for available models — both frontends fetch this.
+MODELS = [
+    {"value": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash Lite", "badge": "Recommended"},
+    {"value": "gemini-2.0-flash-001", "label": "Gemini 2.0 Flash", "badge": ""},
+    {"value": "gemini-2.0-flash-lite-001", "label": "Gemini 2.0 Flash Lite", "badge": "Fastest"},
+    {"value": "gemini-1.5-pro-001", "label": "Gemini 1.5 Pro", "badge": "Highest Quality"},
+]
+DEFAULT_MODEL = MODELS[0]["value"]
+
+
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "version": "1.0.0"}
 
 
+@app.get("/api/models")
+async def list_models():
+    """Return the canonical list of supported Vertex AI models."""
+    return {"models": MODELS, "default": DEFAULT_MODEL}
+
+
 @app.post("/api/analyze")
 async def analyze(
     document: UploadFile = File(...),
-    model: str = Form(default="gemini-3.1-flash-light-preview-preview"),
+    model: str = Form(default=DEFAULT_MODEL),
 ):
     """Upload a design document and start the architecture review workflow."""
     job_id = str(uuid.uuid4())

@@ -25,9 +25,25 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Settings ─────────────────────────────────────────────────
-function loadSettings() {
-  const model = localStorage.getItem('gemini_model') || 'gemini-3.1-flash-light-preview';
-  document.getElementById('input-model').value = model;
+async function loadSettings() {
+  const inputModel = document.getElementById('input-model');
+  const fallbackDefault = 'gemini-3.1-flash-lite-preview';
+
+  // Populate model list from backend (single source of truth)
+  try {
+    const { models, default: defaultModel } = await fetch(`${API_BASE}/api/models`).then(r => r.json());
+    inputModel.innerHTML = models.map(m =>
+      `<option value="${m.value}">${m.label}${m.badge ? ` — ${m.badge}` : ''}</option>`
+    ).join('');
+    const stored = localStorage.getItem('gemini_model') || defaultModel;
+    const valid = models.some(m => m.value === stored);
+    inputModel.value = valid ? stored : defaultModel;
+  } catch {
+    // If API is unreachable, keep whatever options are in the HTML and use fallback
+    const stored = localStorage.getItem('gemini_model') || fallbackDefault;
+    const valid = Array.from(inputModel.options).some(o => o.value === stored);
+    inputModel.value = valid ? stored : fallbackDefault;
+  }
 }
 
 function saveSettings() {
