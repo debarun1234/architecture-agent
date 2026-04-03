@@ -37,6 +37,10 @@ resource "google_cloud_run_v2_service" "default" {
         value = "global"
       }
       env {
+        name  = "EMBEDDING_LOCATION"
+        value = var.region
+      }
+      env {
         name  = "ALLOYDB_CLUSTER"
         value = "arch-agent-cluster"
       }
