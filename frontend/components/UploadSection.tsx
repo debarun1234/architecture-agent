@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { fetchModels, type ModelOption } from '../lib/api';
 import {
   Upload, FileText, X, ChevronDown, CheckCircle, AlertTriangle,
   BookOpen, Zap, GitBranch, Brain, Shield, BarChart2,
@@ -57,11 +58,11 @@ const STEP_CARDS = [
   },
 ];
 
-const MODELS = [
+const FALLBACK_MODELS: ModelOption[] = [
   { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite', badge: 'Recommended' },
-  { value: 'gemini-2.0-flash-001', label: 'Gemini 2.0 Flash', badge: '' },
-  { value: 'gemini-2.0-flash-lite-001', label: 'Gemini 2.0 Flash Lite', badge: 'Fastest' },
-  { value: 'gemini-1.5-pro-001', label: 'Gemini 1.5 Pro', badge: 'Highest Quality' },
+  { value: 'gemini-2.0-flash-001',           label: 'Gemini 2.0 Flash',      badge: '' },
+  { value: 'gemini-2.0-flash-lite-001',      label: 'Gemini 2.0 Flash Lite', badge: 'Fastest' },
+  { value: 'gemini-1.5-pro-001',             label: 'Gemini 1.5 Pro',        badge: 'Highest Quality' },
 ];
 
 const COLOR_CLASSES: Record<string, { bg: string; icon: string; border: string; step: string }> = {
@@ -87,8 +88,18 @@ interface UploadSectionProps {
 export default function UploadSection({ onAnalyze, error }: UploadSectionProps) {
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [model, setModel] = useState(MODELS[0].value);
+  const [models, setModels] = useState<ModelOption[]>(FALLBACK_MODELS);
+  const [model, setModel] = useState(FALLBACK_MODELS[0].value);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchModels()
+      .then(({ models: m, default: def }) => {
+        setModels(m);
+        setModel(def);
+      })
+      .catch(() => { /* keep FALLBACK_MODELS */ });
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -214,7 +225,7 @@ export default function UploadSection({ onAnalyze, error }: UploadSectionProps) 
                   onChange={(e) => setModel(e.target.value)}
                   className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 cursor-pointer pr-9"
                 >
-                  {MODELS.map((m) => (
+                  {models.map((m) => (
                     <option key={m.value} value={m.value}>
                       {m.label}{m.badge ? ` — ${m.badge}` : ''}
                     </option>
