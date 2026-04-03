@@ -72,12 +72,20 @@ async def list_models():
     return {"models": MODELS, "default": DEFAULT_MODEL}
 
 
+VALID_MODEL_VALUES = {m["value"] for m in MODELS}
+
+
 @app.post("/api/analyze")
 async def analyze(
     document: UploadFile = File(...),
     model: str = Form(default=DEFAULT_MODEL),
 ):
     """Upload a design document and start the architecture review workflow."""
+    if model not in VALID_MODEL_VALUES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported model '{model}'. Valid options: {sorted(VALID_MODEL_VALUES)}",
+        )
     job_id = str(uuid.uuid4())
     content = await document.read()
 

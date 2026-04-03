@@ -31,17 +31,38 @@ async function loadSettings() {
 
   // Populate model list from backend (single source of truth)
   try {
-    const { models, default: defaultModel } = await fetch(`${API_BASE}/api/models`).then(r => r.json());
-    inputModel.innerHTML = models.map(m =>
-      `<option value="${m.value}">${m.label}${m.badge ? ` — ${m.badge}` : ''}</option>`
-    ).join('');
+    const response = await fetch(`${API_BASE}/api/models`);
+    if (!response.ok) {
+      throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
+    }
+    const { models, default: defaultModel } = await response.json();
+    inputModel.replaceChildren();
+    models.forEach(m => {
+      const option = document.createElement('option');
+      option.value = m.value;
+      option.textContent = `${m.label}${m.badge ? ` — ${m.badge}` : ''}`;
+      inputModel.appendChild(option);
+    });
     const stored = localStorage.getItem('gemini_model') || defaultModel;
     const valid = models.some(m => m.value === stored);
     inputModel.value = valid ? stored : defaultModel;
   } catch {
-    // If API is unreachable, keep whatever options are in the HTML and use fallback
+    // API unreachable — populate select with hardcoded fallback list
+    const fallbackModels = [
+      { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite — Recommended' },
+      { value: 'gemini-2.0-flash-001',          label: 'Gemini 2.0 Flash' },
+      { value: 'gemini-2.0-flash-lite-001',     label: 'Gemini 2.0 Flash Lite — Fastest' },
+      { value: 'gemini-1.5-pro-001',            label: 'Gemini 1.5 Pro — Highest Quality' },
+    ];
+    inputModel.replaceChildren();
+    fallbackModels.forEach(m => {
+      const option = document.createElement('option');
+      option.value = m.value;
+      option.textContent = m.label;
+      inputModel.appendChild(option);
+    });
     const stored = localStorage.getItem('gemini_model') || fallbackDefault;
-    const valid = Array.from(inputModel.options).some(o => o.value === stored);
+    const valid = fallbackModels.some(m => m.value === stored);
     inputModel.value = valid ? stored : fallbackDefault;
   }
 }

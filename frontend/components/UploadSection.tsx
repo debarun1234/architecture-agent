@@ -95,8 +95,13 @@ export default function UploadSection({ onAnalyze, error }: UploadSectionProps) 
   useEffect(() => {
     fetchModels()
       .then(({ models: m, default: def }) => {
-        setModels(m);
-        setModel(def);
+        if (m.length > 0) {
+          const nextModel = m.some((opt) => opt.value === def)
+            ? def
+            : (m[0]?.value ?? FALLBACK_MODELS[0].value);
+          setModels(m);
+          setModel(nextModel);
+        }
       })
       .catch(() => { /* keep FALLBACK_MODELS */ });
   }, []);
