@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import uuid
 from pathlib import Path
 
@@ -213,7 +214,8 @@ async def redirect_non_api(path: str):
     """Redirect any non-API path to the Vercel frontend (e.g. /about, /results)."""
     if path == "api" or path.startswith("api/"):
         raise HTTPException(status_code=404, detail="Not found")
-    return RedirectResponse(url=f"{FRONTEND_URL}/{path}", status_code=301)
+    safe_path = re.sub(r'[^a-zA-Z0-9/_.-]', '', path).lstrip('/')
+    return RedirectResponse(url=f"{FRONTEND_URL}/{safe_path}", status_code=301)
 
 
 if __name__ == "__main__":
