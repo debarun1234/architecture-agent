@@ -51,20 +51,6 @@ jobs: dict[str, dict] = {}
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://arch-review-ai.vercel.app")
 
 
-@app.get("/")
-async def redirect_root():
-    """Redirect browser traffic at root to the Vercel-hosted frontend."""
-    return RedirectResponse(url=FRONTEND_URL, status_code=301)
-
-
-@app.get("/{path:path}")
-async def redirect_non_api(path: str):
-    """Redirect any non-API path to the Vercel frontend (e.g. /about, /results)."""
-    if path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="Not found")
-    return RedirectResponse(url=f"{FRONTEND_URL}/{path}", status_code=301)
-
-
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "version": "1.0.0"}
@@ -190,6 +176,20 @@ async def stream_progress(job_id: str):
             await asyncio.sleep(0.5)
 
     return EventSourceResponse(event_generator())
+
+
+@app.get("/")
+async def redirect_root():
+    """Redirect browser traffic at root to the Vercel-hosted frontend."""
+    return RedirectResponse(url=FRONTEND_URL, status_code=301)
+
+
+@app.get("/{path:path}")
+async def redirect_non_api(path: str):
+    """Redirect any non-API path to the Vercel frontend (e.g. /about, /results)."""
+    if path == "api" or path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not found")
+    return RedirectResponse(url=f"{FRONTEND_URL}/{path}", status_code=301)
 
 
 if __name__ == "__main__":
