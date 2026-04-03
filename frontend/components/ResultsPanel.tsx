@@ -14,11 +14,6 @@ const MermaidDiagram = lazy(() => import('./MermaidDiagram'));
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function esc(s: unknown): string {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 function mdToHtml(md: string): string {
   return md
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -721,7 +716,6 @@ interface ResultsPanelProps {
 
 export default function ResultsPanel({ results, onReset, fileName }: ResultsPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>('context');
-  const [copied, setCopied] = useState(false);
 
   const bns = results.bottlenecks?.bottlenecks ?? [];
   const proposals = results.proposed_changes?.proposals ?? [];

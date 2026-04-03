@@ -23,8 +23,8 @@ def _parse_document(content: bytes, ext: str) -> str:
 
     if ext == ".pdf":
         try:
-            import PyPDF2
-            reader = PyPDF2.PdfReader(io.BytesIO(content))
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(content))
             return "\n".join(
                 page.extract_text() or "" for page in reader.pages
             )
