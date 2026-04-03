@@ -21,8 +21,9 @@ DATA_DIR = Path(__file__).parent / "data"
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT",
                        "project-ef11010f-3538-4e0c-8f1")
 REGION = os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
-# text-embedding-004 requires a regional endpoint (not 'global')
-EMBED_LOCATION = os.getenv("EMBEDDING_LOCATION", "us-central1")
+# text-embedding-004 requires a regional endpoint (not 'global').
+# EMBEDDING_LOCATION takes precedence; otherwise defaults to GOOGLE_CLOUD_REGION.
+EMBED_LOCATION = os.getenv("EMBEDDING_LOCATION", REGION)
 CLUSTER = os.getenv("ALLOYDB_CLUSTER", "arch-agent-cluster")
 INSTANCE = os.getenv("ALLOYDB_INSTANCE", "arch-agent-instance")
 DB_USER = os.getenv("ALLOYDB_USER", "postgres")

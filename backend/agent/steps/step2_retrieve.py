@@ -21,9 +21,9 @@ PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT",
                        "project-ef11010f-3538-4e0c-8f1")
 REGION = os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
 # text-embedding-004 is NOT available on the 'global' endpoint; it requires a
-# regional endpoint.  EMBEDDING_LOCATION defaults to us-central1 while the
-# generative models run on GOOGLE_CLOUD_LOCATION (global).
-EMBED_LOCATION = os.getenv("EMBEDDING_LOCATION", "us-central1")
+# regional endpoint. EMBEDDING_LOCATION takes precedence; otherwise embeddings
+# default to the configured GOOGLE_CLOUD_REGION.
+EMBED_LOCATION = os.getenv("EMBEDDING_LOCATION", REGION)
 CLUSTER = os.getenv("ALLOYDB_CLUSTER", "arch-agent-cluster")
 INSTANCE = os.getenv("ALLOYDB_INSTANCE", "arch-agent-instance")
 DB_USER = os.getenv("ALLOYDB_USER", "postgres")
@@ -145,8 +145,13 @@ async def retrieve_knowledge(context: dict) -> list[dict[str, Any]]:
                  "guideline_summary": f"Vertex AI Embedding unavailable: {e}",
                  "collection": "system", "score": 0.0}]
     finally:
-        # Restore generative-model location for subsequent pipeline steps
-        vertexai.init(project=PROJECT_ID, location=gen_location)
+        # Restore generative-model location for subsequent pipeline steps.
+        # Wrapped in try/except so a failed restore does not mask the
+        # KB_UNAVAILABLE return already issued by the except block above.
+        try:
+            vertexai.init(project=PROJECT_ID, location=gen_location)
+        except Exception as restore_err:  # noqa: BLE001
+            logging.warning("vertexai restore to %s failed: %s", gen_location, restore_err)
 
     all_results: list[dict] = []
     seen_ids: set[str] = set()
