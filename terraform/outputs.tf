@@ -33,7 +33,7 @@ output "db_pass_secret_id" {
   value       = google_secret_manager_secret.db_pass.secret_id
 }
 
-output "vpc_connector" {
-  description = "Serverless VPC connector used by Cloud Run"
-  value       = google_vpc_access_connector.connector.id
+output "vpc_subnet" {
+  description = "Private subnet used by Cloud Run Direct VPC Egress"
+  value       = google_compute_subnetwork.private.id
 }
