@@ -38,21 +38,10 @@ resource "google_compute_subnetwork" "private" {
   private_ip_google_access = true
 
   log_config {
-    aggregation_interval = "INTERVAL_5_SEC"
-    flow_sampling        = 0.5
+    aggregation_interval = "INTERVAL_10_MIN"
+    flow_sampling        = 0.1
     metadata             = "EXCLUDE_ALL_METADATA"
   }
-}
-
-# Serverless VPC connector so Cloud Run can reach AlloyDB on the private subnet
-resource "google_vpc_access_connector" "connector" {
-  name          = "arch-agent-vpc-conn"
-  project       = var.project_id
-  region        = var.region
-  network       = google_compute_network.vpc.name
-  ip_cidr_range = "10.8.0.0/28"
-  min_instances = 2
-  max_instances = 10
 }
 
 # ─── Firewall Rules ──────────────────────────────────────────────────────────

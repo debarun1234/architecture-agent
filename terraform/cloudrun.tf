@@ -9,10 +9,13 @@ resource "google_cloud_run_v2_service" "default" {
   template {
     service_account = google_service_account.cloud_run_sa.email
 
-    # Route internal traffic through the VPC connector → AlloyDB on private network
+    # Direct VPC Egress — no connector VMs, no extra billing
     vpc_access {
-      connector = google_vpc_access_connector.connector.id
-      egress    = "PRIVATE_RANGES_ONLY"
+      network_interfaces {
+        network    = google_compute_network.vpc.id
+        subnetwork = google_compute_subnetwork.private.id
+      }
+      egress = "PRIVATE_RANGES_ONLY"
     }
 
     containers {
@@ -75,7 +78,6 @@ resource "google_cloud_run_v2_service" "default" {
     google_project_iam_member.vertex_ai_user,
     google_project_iam_member.alloydb_client,
     google_secret_manager_secret_version.db_pass,
-    google_vpc_access_connector.connector,
   ]
 }
 
