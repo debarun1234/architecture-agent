@@ -29,7 +29,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "")
+JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "").rstrip("/")
 JIRA_ORG_ID = os.getenv("JIRA_ORG_ID", "")
 JIRA_USER_EMAIL = os.getenv("JIRA_USER_EMAIL", "")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "")
@@ -298,11 +298,14 @@ async def search_issues(
 async def set_in_progress(issue_key: str) -> None:
     await transition_issue(issue_key, TRANSITION_IN_PROGRESS)
 
+
 async def set_in_review(issue_key: str) -> None:
     await transition_issue(issue_key, TRANSITION_IN_REVIEW)
 
+
 async def set_done(issue_key: str) -> None:
     await transition_issue(issue_key, TRANSITION_DONE)
+
 
 async def set_to_do(issue_key: str) -> None:
     await transition_issue(issue_key, TRANSITION_TO_DO)

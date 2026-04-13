@@ -506,19 +506,22 @@ def _get_latest_completed_job(issue_key: str, jobs: dict) -> tuple[dict | None, 
     Return (results_dict, run_number) for the most recently completed job for
     the given Jira issue key.  Returns (None, 0) if no completed job exists.
     """
-    matching = sorted(
-        [
-            j for j in jobs.values()
-            if j.get("source") == "jira"
-            and j.get("jira_key") == issue_key
-            and j.get("status") == "complete"
-        ],
-        key=lambda j: j["id"],
-    )
+    def _run_num(j: dict) -> int:
+        try:
+            return int(j.get("run", 0))
+        except (TypeError, ValueError):
+            return 0
+
+    matching = [
+        j for j in jobs.values()
+        if j.get("source") == "jira"
+        and j.get("jira_key") == issue_key
+        and j.get("status") == "complete"
+    ]
     if not matching:
         return None, 0
-    latest = matching[-1]
-    return latest.get("results"), latest.get("run", len(matching))
+    latest = max(matching, key=_run_num)
+    return latest.get("results"), _run_num(latest)
 
 
 # ─── Initial analysis pipeline ────────────────────────────────────────────────

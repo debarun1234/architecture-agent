@@ -17,14 +17,13 @@ A2A message format (request body):
       },
       "metadata": {
         "filename": "PROJ-123.jira",
-        "model": "gemini-2.0-flash-001"
+        "model": "gemini-3.1-flash-lite"
       }
     }
   }
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import uuid
@@ -124,7 +123,7 @@ async def _run_pipeline(doc_text: str, filename: str, model: str) -> dict:
     session_id = str(uuid.uuid4())
     user_id = "a2a_caller"
 
-    session = await _session_service.create_session(
+    await _session_service.create_session(
         app_name=APP_NAME,
         user_id=user_id,
         session_id=session_id,
@@ -135,22 +134,25 @@ async def _run_pipeline(doc_text: str, filename: str, model: str) -> dict:
         },
     )
 
-    from google.adk.events import Event
     from google.genai.types import Part, Content
+    from agent.adk_agents.sub_agents import _request_model as _model_cv
 
     initial_message = Content(
         role="user",
-        parts=[Part(text=f"Review the architecture document: {filename}")]
+        parts=[Part(text=f"Review the architecture document: {clean_filename}")]
     )
 
-    final_response_text = ""
-    async for event in _runner.run_async(
-        user_id=user_id,
-        session_id=session_id,
-        new_message=initial_message,
-    ):
-        if event.is_final_response() and event.content and event.content.parts:
-            final_response_text = event.content.parts[0].text or ""
+    _cv_token = _model_cv.set(model)
+    try:
+        async for event in _runner.run_async(
+            user_id=user_id,
+            session_id=session_id,
+            new_message=initial_message,
+        ):
+            if event.is_final_response() and event.content and event.content.parts:
+                pass  # final text captured via session state below
+    finally:
+        _model_cv.reset(_cv_token)
 
     # Collect results from session state
     updated_session = await _session_service.get_session(
@@ -191,6 +193,8 @@ async def _stream_pipeline(
     )
 
     from google.genai.types import Part, Content
+    from agent.adk_agents.sub_agents import _request_model as _model_cv
+    _model_cv.set(model)  # propagate per-request model to all tool invocations
 
     initial_message = Content(
         role="user",
@@ -198,12 +202,12 @@ async def _stream_pipeline(
     )
 
     step_map = {
-        "ContextExtractionAgent":        ("Extracting Context",      16),
-        "KnowledgeRetrievalAgent":       ("Retrieving Knowledge",    33),
-        "BottleneckDetectionAgent":      ("Detecting Bottlenecks",   50),
-        "ImprovementProposalAgent":      ("Proposing Improvements",  66),
-        "ArtifactGenerationAgent":       ("Generating Artifacts",    83),
-        "VerificationAndCitationAgent":  ("Verifying & Citing",      99),
+        "ContextExtractionAgent": ("Extracting Context", 16),
+        "KnowledgeRetrievalAgent": ("Retrieving Knowledge", 33),
+        "BottleneckDetectionAgent": ("Detecting Bottlenecks", 50),
+        "ImprovementProposalAgent": ("Proposing Improvements", 66),
+        "ArtifactGenerationAgent": ("Generating Artifacts", 83),
+        "VerificationAndCitationAgent": ("Verifying & Citing", 99),
     }
 
     async for event in _runner.run_async(
@@ -286,7 +290,7 @@ async def a2a_run(request: Request):
     parts = message.get("parts", [])
     doc_text = next((p.get("text", "") for p in parts if "text" in p), "")
     filename = metadata.get("filename", "document.txt")
-    model = metadata.get("model", os.getenv("ADK_MODEL", "gemini-2.0-flash-001"))
+    model = metadata.get("model", os.getenv("ADK_MODEL", "gemini-3.1-flash-lite"))
 
     if not doc_text:
         return JSONResponse(
@@ -331,7 +335,7 @@ async def a2a_run_streaming(request: Request):
     parts = message.get("parts", [])
     doc_text = next((p.get("text", "") for p in parts if "text" in p), "")
     filename = metadata.get("filename", "document.txt")
-    model = metadata.get("model", os.getenv("ADK_MODEL", "gemini-2.0-flash-001"))
+    model = metadata.get("model", os.getenv("ADK_MODEL", "gemini-3.1-flash-lite"))
 
     if not doc_text:
         return JSONResponse(
@@ -340,7 +344,7 @@ async def a2a_run_streaming(request: Request):
         )
 
     return StreamingResponse(
-        _stream_pipeline(doc_text, filename, model),
+        _stream_pipeline(doc_text, filename, model),  # model resolved above
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

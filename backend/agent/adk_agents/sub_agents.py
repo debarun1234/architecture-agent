@@ -5,6 +5,7 @@ Agents communicate strictly via session state — no shared globals.
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 import json
 
 from google.adk.agents import LlmAgent
@@ -17,14 +18,18 @@ from agent.steps.step5_artifacts import generate_artifacts
 from agent.steps.step6_verify import verify_and_cite
 from agent.steps.step1_extract import extract_context
 
+# Per-request model context variable — set by the orchestrator before invoking
+# the ADK runner so all tool calls within a request use the correct model.
+_request_model: ContextVar[str] = ContextVar("_request_model", default="gemini-3.1-flash-lite")
+
 # ─── Tool wrappers ────────────────────────────────────────────────────────────
 # Each tool pulls its inputs from session state, runs computation, writes back.
+
 
 async def _tool_extract(doc_text: str, filename: str) -> str:
     """Extract structured architectural context from architecture document text."""
     from vertexai.generative_models import GenerativeModel
-    import os
-    model_name = os.getenv("ADK_MODEL", "gemini-2.0-flash-001")
+    model_name = _request_model.get()
     llm = GenerativeModel(model_name)
     result = await extract_context(llm, doc_text, filename)
     return json.dumps(result)
@@ -40,8 +45,7 @@ async def _tool_retrieve(context_json: str) -> str:
 async def _tool_detect(context_json: str, guidelines_json: str) -> str:
     """Detect architectural bottlenecks by cross-referencing context against guidelines."""
     from vertexai.generative_models import GenerativeModel
-    import os
-    model_name = os.getenv("ADK_MODEL", "gemini-2.0-flash-001")
+    model_name = _request_model.get()
     llm = GenerativeModel(model_name)
     context = json.loads(context_json)
     guidelines = json.loads(guidelines_json)
@@ -52,8 +56,7 @@ async def _tool_detect(context_json: str, guidelines_json: str) -> str:
 async def _tool_propose(context_json: str, bottlenecks_json: str, guidelines_json: str) -> str:
     """Propose concrete architectural improvements for each detected bottleneck."""
     from vertexai.generative_models import GenerativeModel
-    import os
-    model_name = os.getenv("ADK_MODEL", "gemini-2.0-flash-001")
+    model_name = _request_model.get()
     llm = GenerativeModel(model_name)
     context = json.loads(context_json)
     bottlenecks = json.loads(bottlenecks_json)
@@ -65,8 +68,7 @@ async def _tool_propose(context_json: str, bottlenecks_json: str, guidelines_jso
 async def _tool_artifacts(context_json: str, bottlenecks_json: str, proposals_json: str) -> str:
     """Generate Mermaid diagram, OpenAPI spec, and markdown review summary."""
     from vertexai.generative_models import GenerativeModel
-    import os
-    model_name = os.getenv("ADK_MODEL", "gemini-2.0-flash-001")
+    model_name = _request_model.get()
     llm = GenerativeModel(model_name)
     context = json.loads(context_json)
     bottlenecks = json.loads(bottlenecks_json)
@@ -78,8 +80,7 @@ async def _tool_artifacts(context_json: str, bottlenecks_json: str, proposals_js
 async def _tool_verify(results_json: str, guidelines_json: str) -> str:
     """Cross-check every finding against guidelines; mark unsupported claims as Not in Evidence."""
     from vertexai.generative_models import GenerativeModel
-    import os
-    model_name = os.getenv("ADK_MODEL", "gemini-2.0-flash-001")
+    model_name = _request_model.get()
     llm = GenerativeModel(model_name)
     results = json.loads(results_json)
     guidelines = json.loads(guidelines_json)

@@ -45,16 +45,25 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any
-
 from jira import client as jira_client
 
 logger = logging.getLogger(__name__)
 
 JIRA_PROJECT_KEY: str = os.getenv("JIRA_PROJECT_KEY", "")
 JIRA_EPIC_KEY: str = os.getenv("JIRA_EPIC_KEY", os.getenv("JIRA_TRIGGER_EPIC_KEY", ""))
-JIRA_POLL_INTERVAL: int = int(os.getenv("JIRA_POLL_INTERVAL", "60"))
-JIRA_MAX_STORIES: int = int(os.getenv("JIRA_MAX_STORIES", "50"))
+
+
+def _safe_int_env(var: str, default: int) -> int:
+    """Parse an int env var; return default silently on missing/invalid values."""
+    raw = os.getenv(var, "")
+    try:
+        return int(raw) if raw else default
+    except ValueError:
+        return default
+
+
+JIRA_POLL_INTERVAL: int = _safe_int_env("JIRA_POLL_INTERVAL", 60)
+JIRA_MAX_STORIES: int = _safe_int_env("JIRA_MAX_STORIES", 50)
 
 # Atlassian account email of the bot / service account posting comments.
 # Comments authored by this email are skipped when scanning for new user input.
@@ -87,19 +96,22 @@ class JiraPoller:
 
     def _latest_completed_job(self, issue_key: str) -> tuple[dict | None, int]:
         """Return (results, run_number) for the most recent completed job, or (None, 0)."""
-        matching = sorted(
-            [
-                j for j in self.jobs.values()
-                if j.get("source") == "jira"
-                and j.get("jira_key") == issue_key
-                and j.get("status") == "complete"
-            ],
-            key=lambda j: j["id"],
-        )
+        def _run_num(j: dict) -> int:
+            try:
+                return int(j.get("run", 0))
+            except (TypeError, ValueError):
+                return 0
+
+        matching = [
+            j for j in self.jobs.values()
+            if j.get("source") == "jira"
+            and j.get("jira_key") == issue_key
+            and j.get("status") == "complete"
+        ]
         if not matching:
             return None, 0
-        latest = matching[-1]
-        return latest.get("results"), latest.get("run", len(matching))
+        latest = max(matching, key=_run_num)
+        return latest.get("results"), _run_num(latest)
 
     def _get_last_user_comment_id(self, story: dict) -> str | None:
         """
@@ -198,7 +210,7 @@ class JiraPoller:
             logger.warning("Jira poller: search failed: %s", exc)
             return
 
-        model = os.getenv("ADK_MODEL", "gemini-2.0-flash-001")
+        model = os.getenv("ADK_MODEL", "gemini-3.1-flash-lite")
 
         for story in stories:
             key = story.get("key", "")
@@ -217,9 +229,12 @@ class JiraPoller:
                 # pre-existing comments don't generate spurious re-reviews.
                 baseline = self._get_last_user_comment_id(story)
                 self._state[key] = {
-                    "initial_triggered": True,
+                    "initial_triggered": False,  # set True by _run_initial on success
                     "last_seen_user_comment_id": baseline,
                 }
+                state = self._state[key]
+
+            if not state.get("initial_triggered"):
                 asyncio.create_task(self._run_initial(story, model))
                 continue
 
@@ -245,8 +260,15 @@ class JiraPoller:
         from jira.pipeline import _trigger_pipeline
         key = story.get("key", "?")
         logger.info("Jira poller: initial analysis → %s", key)
-        await _trigger_pipeline(story, self.jobs, model)
-
+        await _trigger_pipeline(story, self.jobs, model)        # Mark triggered only on success; if the pipeline errored, leave False so
+        # the next poll cycle retries rather than silently dropping the story.
+        _, run_num = self._latest_completed_job(key)
+        if run_num > 0 and key in self._state:
+            self._state[key]["initial_triggered"] = True
+        elif key in self._state:
+            logger.warning(
+                "Jira poller: initial analysis did not complete for %s — will retry next poll", key
+            )
     # ─── Re-review from user comment ──────────────────────────────────────────
 
     async def _run_rereview(
@@ -277,9 +299,14 @@ class JiraPoller:
             # Find the comment before this one to rewind
             comments = story.get("fields", {}).get("comment", {}).get("comments", [])
             cid = str(comment.get("id", ""))
-            prev_ids = [
-                str(c.get("id", "")) for c in comments if str(c.get("id", "")) < cid
-            ]
+            try:
+                cid_int = int(cid)
+                prev_ids = [
+                    str(c.get("id", "")) for c in comments
+                    if int(c.get("id", 0) or 0) < cid_int
+                ]
+            except (TypeError, ValueError):
+                prev_ids = [str(c.get("id", "")) for c in comments if str(c.get("id", "")) < cid]
             state["last_seen_user_comment_id"] = prev_ids[-1] if prev_ids else None
             return
 
