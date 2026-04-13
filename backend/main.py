@@ -90,6 +90,10 @@ app.add_middleware(
 # Mount A2A sub-application at /a2a  (Agent-to-Agent strict protocol)
 app.mount("/a2a", a2a_app)
 
+# UI_ENABLED gates the file-upload endpoints and Vercel frontend redirects.
+# Set UI_ENABLED=true to re-enable the web UI; Jira integration is always active.
+_UI_ENABLED: bool = os.getenv("UI_ENABLED", "false").lower() in ("1", "true", "yes")
+
 # Frontend is hosted on Vercel. Root and all non-API paths redirect there.
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://arch-review-ai.vercel.app")
 
@@ -118,12 +122,16 @@ async def list_models():
 VALID_MODEL_VALUES = {m["value"] for m in MODELS}
 
 
+# ─── UI endpoints (disabled by default — set UI_ENABLED=true to re-enable) ────
+
 @app.post("/api/analyze")
 async def analyze(
     document: UploadFile = File(...),
     model: str = Form(default=DEFAULT_MODEL),
 ):
     """Upload a design document and start the architecture review workflow."""
+    if not _UI_ENABLED:
+        raise HTTPException(status_code=503, detail="UI upload path is disabled. Use Jira integration.")
     if model not in VALID_MODEL_VALUES:
         raise HTTPException(
             status_code=400,
@@ -176,6 +184,8 @@ async def run_agent(
 
 @app.get("/api/status/{job_id}")
 async def get_status(job_id: str):
+    if not _UI_ENABLED:
+        raise HTTPException(status_code=503, detail="UI upload path is disabled.")
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     job = jobs[job_id]
@@ -190,6 +200,8 @@ async def get_status(job_id: str):
 
 @app.get("/api/results/{job_id}")
 async def get_results(job_id: str):
+    if not _UI_ENABLED:
+        raise HTTPException(status_code=503, detail="UI upload path is disabled.")
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     job = jobs[job_id]
@@ -205,6 +217,8 @@ async def get_results(job_id: str):
 @app.get("/api/stream/{job_id}")
 async def stream_progress(job_id: str):
     """SSE stream for real-time progress updates."""
+    if not _UI_ENABLED:
+        raise HTTPException(status_code=503, detail="UI upload path is disabled.")
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -245,13 +259,18 @@ async def stream_progress(job_id: str):
 
 @app.get("/")
 async def redirect_root():
-    """Redirect browser traffic at root to the Vercel-hosted frontend."""
+    """Root path: redirect to frontend if UI enabled, otherwise return service info."""
+    if not _UI_ENABLED:
+        return JSONResponse({"service": "Architecture Review Agent", "status": "running",
+                             "jira": "active", "ui": "disabled"})
     return RedirectResponse(url=FRONTEND_URL, status_code=301)
 
 
 @app.get("/{path:path}")
 async def redirect_non_api(path: str):
-    """Redirect any non-API path to the Vercel frontend (e.g. /about, /results)."""
+    """Redirect any non-API path to the Vercel frontend (UI mode only)."""
+    if not _UI_ENABLED:
+        raise HTTPException(status_code=404, detail="Not found")
     # Strip characters that are not safe URL path chars, then normalize to
     # collapse any dot-segments (e.g. ../api/health -> api/health).
     cleaned = re.sub(r'[^a-zA-Z0-9/_.-]', '', path)
