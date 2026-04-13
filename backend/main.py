@@ -7,7 +7,8 @@ import uuid
 from pathlib import Path
 
 import vertexai
-from agent.orchestrator import AgentOrchestrator
+from agent.orchestrator import _parse_document
+from agent.adk_agents.orchestrator import a2a_app, _run_pipeline
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,9 +28,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# In-memory job store (production: use Redis)
+# Shared between the HTTP handlers, the Jira poller, and (optionally) the webhook router.
+jobs: dict[str, dict] = {}
+
+_jira_poller_task: asyncio.Task | None = None
+
 
 @app.on_event("startup")
 async def startup_event():
+    global _jira_poller_task
+
     # Initialize Vertex AI on startup
     vertexai.init(project=PROJECT_ID, location=LOCATION)
     print(f"Vertex AI initialized for project {PROJECT_ID} in {LOCATION}")
@@ -38,16 +47,48 @@ async def startup_event():
     PIIRedactor()
     print("PII Redaction NLP engine pre-warmed.")
 
+    # Start Jira poller if a project key is configured.
+    # The poller polls Jira REST API directly — no webhook or network tunnelling needed.
+    jira_project_key = os.getenv("JIRA_PROJECT_KEY", "")
+    if jira_project_key:
+        from jira.poller import JiraPoller
+        poller = JiraPoller(jobs)
+        _jira_poller_task = asyncio.create_task(poller.run())
+        print(f"Jira poller started — monitoring project {jira_project_key}")
+    else:
+        print("Jira poller disabled (JIRA_PROJECT_KEY not set).")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if _jira_poller_task and not _jira_poller_task.done():
+        _jira_poller_task.cancel()
+        try:
+            await _jira_poller_task
+        except asyncio.CancelledError:
+            pass
+
+# CORS: explicit origins required when allow_credentials=True
+# (browser rejects credentialed requests to wildcard origins per the CORS spec)
+_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://arch-review-ai.vercel.app,http://localhost:3000,http://localhost:8000",
+    ).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# In-memory job store (production: use Redis)
-jobs: dict[str, dict] = {}
+# Mount A2A sub-application at /a2a  (Agent-to-Agent strict protocol)
+app.mount("/a2a", a2a_app)
 
 # Frontend is hosted on Vercel. Root and all non-API paths redirect there.
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://arch-review-ai.vercel.app")
@@ -121,12 +162,10 @@ async def run_agent(
 ):
     jobs[job_id]["status"] = "running"
     try:
-        orchestrator = AgentOrchestrator(
-            model=model,
-            job_id=job_id,
-            jobs=jobs,
-        )
-        result = await orchestrator.run(content, ext, filename)
+        # Parse raw bytes → plain text (PDF, DOCX, TXT, MD)
+        # PII redaction is handled inside _run_pipeline before any LLM call
+        doc_text = _parse_document(content, ext)
+        result = await _run_pipeline(doc_text, filename, model)
         jobs[job_id]["status"] = "complete"
         jobs[job_id]["results"] = result
         jobs[job_id]["progress"] = 100
