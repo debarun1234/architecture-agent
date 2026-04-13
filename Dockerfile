@@ -4,7 +4,7 @@ FROM python:3.10-slim
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PORT=8080
 
 # Create application directory
 WORKDIR /app
@@ -26,4 +26,4 @@ COPY frontend/ /app/frontend/
 COPY backend/knowledge_base/data/ /app/knowledge_base/data/
 
 # Run the FastAPI server via Uvicorn
-CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port \"${PORT:-8000}\""]
+CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port \"${PORT:-8080}\""]
