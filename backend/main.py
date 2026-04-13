@@ -7,15 +7,10 @@ import re
 import uuid
 from pathlib import Path
 
-import vertexai
-from agent.orchestrator import _parse_document
-from agent.adk_agents.orchestrator import a2a_app, _run_pipeline
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
-from agent.pii_redactor import PIIRedactor
-from sse_starlette.sse import EventSourceResponse
 
 load_dotenv()
 
@@ -37,30 +32,68 @@ jobs: dict[str, dict] = {}
 
 _jira_poller_task: asyncio.Task | None = None
 
+# These are populated by _load_heavy_imports once the background thread finishes.
+_run_pipeline = None
+_parse_document = None
+
 
 @app.on_event("startup")
 async def startup_event():
     global _jira_poller_task
 
-    # Initialize Vertex AI (fast — just sets module-level config)
-    try:
-        vertexai.init(project=PROJECT_ID, location=LOCATION)
-        logger.info("Vertex AI initialized for project %s in %s", PROJECT_ID, LOCATION)
-    except Exception as exc:
-        logger.warning("Vertex AI init warning (non-fatal): %s", exc)
+    def _load_heavy_imports():
+        """
+        Load every heavy dependency in a worker thread so uvicorn can bind to
+        PORT immediately and Cloud Run's startup probe succeeds quickly.
 
-    # Pre-warm PII Redaction engine in a background thread so it does NOT
-    # block the event loop or delay the port from accepting connections.
-    # spacy model loading can take 10-30s; Cloud Run health probe must not time out.
-    def _prewarm_pii():
+        Loads (in order):
+          - vertexai (fast config call)
+          - agent.pii_redactor → PIIRedactor (spacy model, 10-30 s)
+          - agent.adk_agents.orchestrator (google-adk, alloydb-connector, etc.)
+          - agent.orchestrator._parse_document (pypdf, python-docx, …)
+        Then mounts the A2A sub-app and marks everything ready.
+        """
+        global _run_pipeline, _parse_document
+
+        # 1. Vertex AI — just sets module-level config, very fast
         try:
-            PIIRedactor()
+            import vertexai  # noqa: PLC0415
+            vertexai.init(project=PROJECT_ID, location=LOCATION)
+            logger.info("Vertex AI initialised for project %s in %s", PROJECT_ID, LOCATION)
+        except Exception as exc:
+            logger.warning("Vertex AI init warning (non-fatal): %s", exc)
+
+        # 2. PII Redaction engine — loads spacy en_core_web_sm (slow, ~10-30 s)
+        try:
+            from agent.pii_redactor import PIIRedactor  # noqa: PLC0415
+            PIIRedactor()  # singleton — warms the spacy model once
             logger.info("PII Redaction NLP engine pre-warmed.")
         except Exception as exc:
             logger.warning("PII Redactor pre-warm failed (non-fatal): %s", exc)
 
+        # 3. ADK orchestrator — heavy: google-adk, google-cloud-aiplatform, alloydb
+        try:
+            from agent.adk_agents.orchestrator import (  # noqa: PLC0415
+                a2a_app,
+                _run_pipeline as _adk_run_pipeline,
+            )
+            _run_pipeline = _adk_run_pipeline
+            # Mount the A2A sub-app dynamically — Starlette checks routes per request
+            # so adding it here (before any /a2a request arrives) is safe.
+            app.mount("/a2a", a2a_app)
+            logger.info("ADK orchestrator loaded; /a2a mounted.")
+        except Exception as exc:
+            logger.error("ADK orchestrator failed to load: %s", exc)
+
+        # 4. Non-ADK orchestrator (used by UI upload route, optional)
+        try:
+            from agent.orchestrator import _parse_document as _adk_parse  # noqa: PLC0415
+            _parse_document = _adk_parse
+        except Exception as exc:
+            logger.warning("_parse_document failed to import (non-fatal): %s", exc)
+
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _prewarm_pii)
+    loop.run_in_executor(None, _load_heavy_imports)
 
     # Start Jira poller if a project key is configured.
     jira_project_key = os.getenv("JIRA_PROJECT_KEY", "")
@@ -101,9 +134,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount A2A sub-application at /a2a  (Agent-to-Agent strict protocol)
-app.mount("/a2a", a2a_app)
-
 # UI_ENABLED gates the file-upload endpoints and Vercel frontend redirects.
 # Set UI_ENABLED=true to re-enable the web UI; Jira integration is always active.
 _UI_ENABLED: bool = os.getenv("UI_ENABLED", "false").lower() in ("1", "true", "yes")
@@ -141,6 +171,7 @@ VALID_MODEL_VALUES = {m["value"] for m in MODELS}
 
 if _UI_ENABLED:
     from fastapi import File, Form, UploadFile
+    from sse_starlette.sse import EventSourceResponse
 
     @app.post("/api/analyze")
     async def analyze(
@@ -231,6 +262,8 @@ if _UI_ENABLED:
 async def run_agent(job_id: str, content: bytes, ext: str, filename: str, model: str):
     jobs[job_id]["status"] = "running"
     try:
+        if _parse_document is None or _run_pipeline is None:
+            raise RuntimeError("Agent not ready yet — heavy imports still loading. Retry in a moment.")
         doc_text = _parse_document(content, ext)
         result = await _run_pipeline(doc_text, filename, model)
         jobs[job_id]["status"] = "complete"
