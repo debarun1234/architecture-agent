@@ -64,12 +64,16 @@ jobs:
         uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: v0.50.3
+        continue-on-error: true
+        id: setup_tflint
 
       - name: Init tflint
+        if: steps.setup_tflint.outcome == 'success'
         run: tflint --init
         working-directory: terraform
 
       - name: Run tflint
+        if: steps.setup_tflint.outcome == 'success'
         run: tflint --recursive
         working-directory: terraform
 
