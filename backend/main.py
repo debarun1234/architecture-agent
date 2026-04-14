@@ -51,7 +51,9 @@ async def startup_event():
           - agent.pii_redactor → PIIRedactor (spacy model, 10-30 s)
           - agent.adk_agents.orchestrator (google-adk, alloydb-connector, etc.)
           - agent.orchestrator._parse_document (pypdf, python-docx, …)
-        Then mounts the A2A sub-app and marks everything ready.
+        Shared-state mutations (app.mount, global assignments) are scheduled
+        back onto the event loop via loop.call_soon_threadsafe so they never
+        race with request handling.
         """
         global _run_pipeline, _parse_document
 
@@ -74,14 +76,14 @@ async def startup_event():
         # 3. ADK orchestrator — heavy: google-adk, google-cloud-aiplatform, alloydb
         try:
             from agent.adk_agents.orchestrator import (  # noqa: PLC0415
-                a2a_app,
+                a2a_app as _a2a_app,
                 _run_pipeline as _adk_run_pipeline,
             )
             _run_pipeline = _adk_run_pipeline
-            # Mount the A2A sub-app dynamically — Starlette checks routes per request
-            # so adding it here (before any /a2a request arrives) is safe.
-            app.mount("/a2a", a2a_app)
-            logger.info("ADK orchestrator loaded; /a2a mounted.")
+            # Schedule app.mount back on the event loop — mutating Starlette routing
+            # tables from a worker thread is not thread-safe.
+            _event_loop.call_soon_threadsafe(app.mount, "/a2a", _a2a_app)
+            logger.info("ADK orchestrator loaded; /a2a mount scheduled.")
         except Exception as exc:
             logger.error("ADK orchestrator failed to load: %s", exc)
 
@@ -92,8 +94,8 @@ async def startup_event():
         except Exception as exc:
             logger.warning("_parse_document failed to import (non-fatal): %s", exc)
 
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _load_heavy_imports)
+    _event_loop = asyncio.get_running_loop()
+    _event_loop.run_in_executor(None, _load_heavy_imports)
 
     # Start Jira poller if a project key is configured.
     jira_project_key = os.getenv("JIRA_PROJECT_KEY", "")
