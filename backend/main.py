@@ -26,6 +26,30 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+class _LazyA2AProxy:
+    """ASGI proxy registered at module load time so it sits before the catch-all
+    route in Starlette's ordered route list.  The real ADK sub-app is injected
+    via `set_app()` once heavy imports finish.  Until then, returns 503.
+    """
+
+    def __init__(self):
+        self._app = None
+
+    def set_app(self, real_app):
+        self._app = real_app
+
+    async def __call__(self, scope, receive, send):
+        if self._app is None:
+            from starlette.responses import JSONResponse as _JR  # noqa: PLC0415
+            resp = _JR({"detail": "A2A not ready — agent still loading"}, status_code=503)
+            await resp(scope, receive, send)
+            return
+        await self._app(scope, receive, send)
+
+
+_a2a_proxy = _LazyA2AProxy()
+
 # In-memory job store (production: use Redis)
 # Shared between the HTTP handlers, the Jira poller, and (optionally) the webhook router.
 jobs: dict[str, dict] = {}
@@ -51,9 +75,11 @@ async def startup_event():
           - agent.pii_redactor → PIIRedactor (spacy model, 10-30 s)
           - agent.adk_agents.orchestrator (google-adk, alloydb-connector, etc.)
           - agent.orchestrator._parse_document (pypdf, python-docx, …)
-        Shared-state mutations (app.mount, global assignments) are scheduled
-        back onto the event loop via loop.call_soon_threadsafe so they never
-        race with request handling.
+        Populates the module-level `_run_pipeline` / `_parse_document` callables
+        (the implicit readiness signal) and injects the real ADK sub-app into
+        `_a2a_proxy` via `call_soon_threadsafe`.  All shared-state mutations are
+        scheduled onto the event loop thread so they never race with request
+        handling.
         """
         global _run_pipeline, _parse_document
 
@@ -80,17 +106,18 @@ async def startup_event():
                 _run_pipeline as _adk_run_pipeline,
             )
             _run_pipeline = _adk_run_pipeline
-            # Schedule app.mount back on the event loop — mutating Starlette routing
-            # tables from a worker thread is not thread-safe.
-            _event_loop.call_soon_threadsafe(app.mount, "/a2a", _a2a_app)
-            logger.info("ADK orchestrator loaded; /a2a mount scheduled.")
+            # Inject the real sub-app into the proxy via the event loop thread.
+            # _a2a_proxy is already registered in app.routes (before the catch-all)
+            # so routing order is correct from the first request onward.
+            _event_loop.call_soon_threadsafe(_a2a_proxy.set_app, _a2a_app)
+            logger.info("ADK orchestrator loaded; _a2a_proxy wired to real sub-app.")
         except Exception as exc:
             logger.error("ADK orchestrator failed to load: %s", exc)
 
         # 4. Non-ADK orchestrator (used by UI upload route, optional)
         try:
-            from agent.orchestrator import _parse_document as _adk_parse  # noqa: PLC0415
-            _parse_document = _adk_parse
+            from agent.orchestrator import _parse_document as _parse_document_impl  # noqa: PLC0415
+            _parse_document = _parse_document_impl
         except Exception as exc:
             logger.warning("_parse_document failed to import (non-fatal): %s", exc)
 
@@ -135,6 +162,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount A2A proxy BEFORE any catch-all route so it wins on /a2a/* paths.
+# The real ADK sub-app is injected into _a2a_proxy once heavy imports finish.
+app.mount("/a2a", _a2a_proxy)
 
 # UI_ENABLED gates the file-upload endpoints and Vercel frontend redirects.
 # Set UI_ENABLED=true to re-enable the web UI; Jira integration is always active.
